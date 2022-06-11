@@ -22,8 +22,18 @@ const insertUserStmt = "INSERT INTO user (usr_uuid, usr_ext_uuid, usr_name) VALU
 
 const updateUserStmt = "UPDATE user SET usr_name = ? WHERE usr_id = ?"
 
-func FindUserByExternalUUID(conn *sql.Tx, uuid string) (*entity.User, error) {
-	stmt, err := conn.Prepare(qryUserByExternalUUID)
+type UserDAO struct {
+	conn *sql.Tx
+}
+
+func GetUserDAO(conn *sql.Tx) *UserDAO {
+	return &UserDAO{
+		conn: conn,
+	}
+}
+
+func (dao *UserDAO) FindByExternalUUID(uuid string) (*entity.User, error) {
+	stmt, err := dao.conn.Prepare(qryUserByExternalUUID)
 	if err != nil {
 		return nil, err
 	}
@@ -33,9 +43,9 @@ func FindUserByExternalUUID(conn *sql.Tx, uuid string) (*entity.User, error) {
 	var user entity.User
 
 	qryErr := stmt.QueryRow(uuid).Scan(
-		&user.UserID,
-		&user.UserUUID,
-		&user.UserExternalUUID,
+		&user.Id,
+		&user.UUID,
+		&user.ExternalUUID,
 		&user.UserName,
 	)
 
@@ -46,8 +56,8 @@ func FindUserByExternalUUID(conn *sql.Tx, uuid string) (*entity.User, error) {
 	return &user, nil
 }
 
-func CreateUser(conn *sql.Tx, cli *inputData.Client) (*entity.User, error) {
-	stmt, err := conn.Prepare(insertUserStmt)
+func (dao *UserDAO) CreateUser(cli *inputData.Client) (*entity.User, error) {
+	stmt, err := dao.conn.Prepare(insertUserStmt)
 	if err != nil {
 		return nil, err
 	}
@@ -64,24 +74,24 @@ func CreateUser(conn *sql.Tx, cli *inputData.Client) (*entity.User, error) {
 	}
 
 	user := entity.User{
-		UserID:           lastId,
-		UserUUID:         userUUID,
-		UserExternalUUID: cli.Id,
-		UserName:         cli.Name,
+		Id:           lastId,
+		UUID:         userUUID,
+		ExternalUUID: cli.Id,
+		UserName:     cli.Name,
 	}
 
-	log.Printf("created new user (%s) from %s %s \n", userUUID.String(), cli.Id, cli.Name)
+	log.Printf("created user [%d, %s, %s, %s]\n", user.Id, userUUID.String(), cli.Id, cli.Name)
 
 	return &user, nil
 }
 
-func UpdateUser(conn *sql.Tx, usr *entity.User) error {
-	stmt, err := conn.Prepare(updateUserStmt)
+func (dao *UserDAO) UpdateUser(usr *entity.User) error {
+	stmt, err := dao.conn.Prepare(updateUserStmt)
 	if err != nil {
 		return err
 	}
 
-	res, err := stmt.Exec(usr.UserName, usr.UserID)
+	res, err := stmt.Exec(usr.UserName, usr.Id)
 	if err != nil {
 		return err
 	}
@@ -94,6 +104,8 @@ func UpdateUser(conn *sql.Tx, usr *entity.User) error {
 	if rowCnt != 1 {
 		return errors.New("userDAO::UpdateUser - too many affected rows")
 	}
+
+	log.Printf("updated user [%d, %s, %s] \n", usr.Id, usr.ExternalUUID, usr.UserName)
 
 	return nil
 }

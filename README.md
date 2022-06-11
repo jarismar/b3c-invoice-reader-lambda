@@ -8,7 +8,9 @@ Files are read from this S3 Bucket `b3c-data/invoice`
 
 ## Dependencies
 
-1. [go-sql-driver/mysql](https://github.com/go-sql-driver/mysql)
+1. [google/uuid](https://github.com/google/uuid)
+2. [go-sql-driver/mysql](https://github.com/go-sql-driver/mysql)
+3. [jarismar/b3c-service-entities](https://github.com/jarismar/b3c-service-entities)
 
 ## References
 

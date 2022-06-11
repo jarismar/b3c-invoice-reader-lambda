@@ -1,7 +1,6 @@
 package service
 
 import (
-	"database/sql"
 	"log"
 
 	"github.com/jarismar/b3c-invoice-reader-lambda/db"
@@ -9,14 +8,24 @@ import (
 	"github.com/jarismar/b3c-service-entities/entity"
 )
 
-func insert(conn *sql.Tx, cli *inputData.Client) (*entity.User, error) {
-	log.Printf("creating new user %s - %s\n", cli.Id, cli.Name)
-	return db.CreateUser(conn, cli)
+type UserService struct {
+	userDAO *db.UserDAO
 }
 
-func update(conn *sql.Tx, user *entity.User) (*entity.User, error) {
-	log.Printf("updating user %s - %s\n", user.UserExternalUUID, user.UserName)
-	err := db.UpdateUser(conn, user)
+func GetUserService(userDAO *db.UserDAO) *UserService {
+	return &UserService{
+		userDAO: userDAO,
+	}
+}
+
+func (userService *UserService) insert(cli *inputData.Client) (*entity.User, error) {
+	log.Printf("creating new user %s - %s\n", cli.Id, cli.Name)
+	return userService.userDAO.CreateUser(cli)
+}
+
+func (userService *UserService) update(user *entity.User) (*entity.User, error) {
+	log.Printf("updating user %s - %s\n", user.ExternalUUID, user.UserName)
+	err := userService.userDAO.UpdateUser(user)
 	if err != nil {
 		return nil, err
 	}
@@ -24,18 +33,19 @@ func update(conn *sql.Tx, user *entity.User) (*entity.User, error) {
 	return user, nil
 }
 
-func UpsertUser(conn *sql.Tx, cli *inputData.Client) (*entity.User, error) {
-	user, err := db.FindUserByExternalUUID(conn, cli.Id)
+func (userService *UserService) UpsertUser(cli *inputData.Client) (*entity.User, error) {
+	user, err := userService.userDAO.FindByExternalUUID(cli.Id)
 	if err != nil {
 		return nil, err
 	}
 
 	if user == nil {
-		return insert(conn, cli)
+		return userService.insert(cli)
 	}
 
 	if user.UserName != cli.Name {
-		return update(conn, user)
+		user.UserName = cli.Name
+		return userService.update(user)
 	}
 
 	log.Printf("nothing to be done for user %s - %s\n", cli.Id, cli.Name)
