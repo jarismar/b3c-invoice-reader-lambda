@@ -19,12 +19,12 @@ func GetUserService(userDAO *db.UserDAO) *UserService {
 }
 
 func (userService *UserService) insert(cli *inputData.Client) (*entity.User, error) {
-	log.Printf("creating new user %s - %s\n", cli.Id, cli.Name)
+	log.Printf("creating user [%s, %s]\n", cli.Id, cli.Name)
 	return userService.userDAO.CreateUser(cli)
 }
 
 func (userService *UserService) update(user *entity.User) (*entity.User, error) {
-	log.Printf("updating user %s - %s\n", user.ExternalUUID, user.UserName)
+	log.Printf("updating user [%s, %s]\n", user.ExternalUUID, user.UserName)
 	err := userService.userDAO.UpdateUser(user)
 	if err != nil {
 		return nil, err
@@ -48,6 +48,6 @@ func (userService *UserService) UpsertUser(cli *inputData.Client) (*entity.User,
 		return userService.update(user)
 	}
 
-	log.Printf("nothing to be done for user %s - %s\n", cli.Id, cli.Name)
+	log.Printf("nothing to be done for user [%s, %s]\n", cli.Id, cli.Name)
 	return user, nil
 }

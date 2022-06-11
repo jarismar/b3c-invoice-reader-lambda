@@ -2,11 +2,11 @@ package db
 
 import (
 	"database/sql"
-	"errors"
 	"log"
 
 	"github.com/google/uuid"
 	"github.com/jarismar/b3c-invoice-reader-lambda/inputData"
+	"github.com/jarismar/b3c-invoice-reader-lambda/utils"
 	"github.com/jarismar/b3c-service-entities/entity"
 )
 
@@ -102,7 +102,7 @@ func (dao *UserDAO) UpdateUser(usr *entity.User) error {
 	}
 
 	if rowCnt != 1 {
-		return errors.New("userDAO::UpdateUser - too many affected rows")
+		return utils.GetError("UserDAO::UpdateUser", "ERR_DB_001")
 	}
 
 	log.Printf("updated user [%d, %s, %s] \n", usr.Id, usr.ExternalUUID, usr.UserName)
