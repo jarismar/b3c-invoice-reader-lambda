@@ -2,10 +2,10 @@ package db
 
 import (
 	"database/sql"
-	"errors"
 	"log"
 
 	"github.com/jarismar/b3c-invoice-reader-lambda/inputData"
+	"github.com/jarismar/b3c-invoice-reader-lambda/utils"
 	"github.com/jarismar/b3c-service-entities/entity"
 )
 
@@ -96,7 +96,7 @@ func (dao *CompanyDAO) UpdateCompany(company *entity.Company) error {
 	}
 
 	if rowCnt != 1 {
-		return errors.New("companyDAO::UpdateCompany - too many affected rows")
+		return utils.GetError("CompanyDAO::UpdateCompany", "ERR_DB_001")
 	}
 
 	log.Printf("updated company [%03d, %s, %s]\n", company.Id, company.Code, company.Name)

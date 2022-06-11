@@ -3,6 +3,7 @@ package inputData
 type Invoice struct {
 	Market      string  `json:"market"`
 	InvoiceNum  int     `json:"inviceNum"`
+	FileName    string  `json:"filename"`
 	MarketDate  string  `json:"marketDate"`
 	BillingDate string  `json:"billingDate"`
 	AgentId     string  `json:"agentId"`
