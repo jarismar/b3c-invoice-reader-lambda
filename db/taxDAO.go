@@ -2,6 +2,7 @@ package db
 
 import (
 	"database/sql"
+	"fmt"
 	"log"
 
 	"github.com/jarismar/b3c-invoice-reader-lambda/inputData"
@@ -48,6 +49,8 @@ func (dao *TaxDAO) FindByCode(code string) (*entity.Tax, error) {
 
 	if qryErr == sql.ErrNoRows {
 		return nil, nil
+	} else if qryErr != nil {
+		return nil, qryErr
 	}
 
 	return &tax, nil
@@ -58,6 +61,8 @@ func (dao *TaxDAO) CreateTax(taxInput *inputData.Tax) (*entity.Tax, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	defer stmt.Close()
 
 	res, err := stmt.Exec(taxInput.Code, taxInput.Source)
 	if err != nil {
@@ -86,6 +91,8 @@ func (dao *TaxDAO) UpdateTax(tax *entity.Tax) error {
 		return err
 	}
 
+	defer stmt.Close()
+
 	res, err := stmt.Exec(tax.Source, tax.Id)
 	if err != nil {
 		return err
@@ -97,7 +104,8 @@ func (dao *TaxDAO) UpdateTax(tax *entity.Tax) error {
 	}
 
 	if rowCnt != 1 {
-		return utils.GetError("TaxDAO::UpdateTax", "ERR_DB_001")
+		details := fmt.Sprintf("expected 1 found %d rows", rowCnt)
+		return utils.GetError("TaxDAO::UpdateTax", "ERR_DB_001", details)
 	}
 
 	log.Printf("updated tax [%d, %s, %s] \n", tax.Id, tax.Code, tax.Source)

@@ -2,6 +2,7 @@ package db
 
 import (
 	"database/sql"
+	"fmt"
 	"log"
 
 	"github.com/google/uuid"
@@ -51,6 +52,8 @@ func (dao *UserDAO) FindByExternalUUID(uuid string) (*entity.User, error) {
 
 	if qryErr == sql.ErrNoRows {
 		return nil, nil
+	} else if qryErr != nil {
+		return nil, qryErr
 	}
 
 	return &user, nil
@@ -61,6 +64,8 @@ func (dao *UserDAO) CreateUser(cli *inputData.Client) (*entity.User, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	defer stmt.Close()
 
 	userUUID := uuid.New()
 	res, err := stmt.Exec(userUUID.String(), cli.Id, cli.Name)
@@ -85,13 +90,15 @@ func (dao *UserDAO) CreateUser(cli *inputData.Client) (*entity.User, error) {
 	return &user, nil
 }
 
-func (dao *UserDAO) UpdateUser(usr *entity.User) error {
+func (dao *UserDAO) UpdateUser(user *entity.User) error {
 	stmt, err := dao.conn.Prepare(updateUserStmt)
 	if err != nil {
 		return err
 	}
 
-	res, err := stmt.Exec(usr.UserName, usr.Id)
+	defer stmt.Close()
+
+	res, err := stmt.Exec(user.UserName, user.Id)
 	if err != nil {
 		return err
 	}
@@ -102,10 +109,11 @@ func (dao *UserDAO) UpdateUser(usr *entity.User) error {
 	}
 
 	if rowCnt != 1 {
-		return utils.GetError("UserDAO::UpdateUser", "ERR_DB_001")
+		details := fmt.Sprintf("expected 1 found %d rows", rowCnt)
+		return utils.GetError("UserDAO::UpdateUser", "ERR_DB_001", details)
 	}
 
-	log.Printf("updated user [%d, %s, %s] \n", usr.Id, usr.ExternalUUID, usr.UserName)
+	log.Printf("updated user [%d, %s, %s] \n", user.Id, user.ExternalUUID, user.UserName)
 
 	return nil
 }

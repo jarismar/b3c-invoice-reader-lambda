@@ -2,6 +2,7 @@ package db
 
 import (
 	"database/sql"
+	"fmt"
 	"log"
 
 	"github.com/jarismar/b3c-invoice-reader-lambda/inputData"
@@ -48,6 +49,8 @@ func (dao *CompanyDAO) FindByCode(code string) (*entity.Company, error) {
 
 	if qryErr == sql.ErrNoRows {
 		return nil, nil
+	} else if qryErr != nil {
+		return nil, qryErr
 	}
 
 	return &company, nil
@@ -58,6 +61,8 @@ func (dao *CompanyDAO) CreateCompany(inputCompany *inputData.Company) (*entity.C
 	if err != nil {
 		return nil, err
 	}
+
+	defer stmt.Close()
 
 	res, err := stmt.Exec(inputCompany.Code, inputCompany.Name)
 	if err != nil {
@@ -85,6 +90,8 @@ func (dao *CompanyDAO) UpdateCompany(company *entity.Company) error {
 		return err
 	}
 
+	defer stmt.Close()
+
 	res, err := stmt.Exec(company.Name, company.Name)
 	if err != nil {
 		return err
@@ -96,7 +103,8 @@ func (dao *CompanyDAO) UpdateCompany(company *entity.Company) error {
 	}
 
 	if rowCnt != 1 {
-		return utils.GetError("CompanyDAO::UpdateCompany", "ERR_DB_001")
+		details := fmt.Sprintf("expected 1 found %d rows", rowCnt)
+		return utils.GetError("CompanyDAO::UpdateCompany", "ERR_DB_001", details)
 	}
 
 	log.Printf("updated company [%03d, %s, %s]\n", company.Id, company.Code, company.Name)

@@ -2,13 +2,13 @@ package inputData
 
 type Invoice struct {
 	Market      string  `json:"market"`
-	InvoiceNum  int     `json:"inviceNum"`
+	InvoiceNum  int64   `json:"inviceNum"`
 	FileName    string  `json:"filename"`
 	MarketDate  string  `json:"marketDate"`
 	BillingDate string  `json:"billingDate"`
 	AgentId     string  `json:"agentId"`
-	RawValue    float32 `json:"rawValue"`
-	NetValue    float32 `json:"netValue"`
+	RawValue    float64 `json:"rawValue"`
+	NetValue    float64 `json:"netValue"`
 	Client      Client  `json:"client"`
 	Items       []Item  `json:"items"`
 	Taxes       []Tax   `json:"taxes"`

@@ -19,6 +19,7 @@ func GetConnection() (*sql.DB, error) {
 		Collation:            "utf8_general_ci",
 		Timeout:              timeout,
 		AllowNativePasswords: true,
+		ParseTime:            true,
 	}
 
 	return sql.Open("mysql", config.FormatDSN())
