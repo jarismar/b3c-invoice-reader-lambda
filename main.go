@@ -21,6 +21,16 @@ func getCompanyByCode(companyCode string, companies []entity.Company) *entity.Co
 	return nil
 }
 
+func getTaxByCode(taxCode string, taxes []entity.Tax) *entity.Tax {
+	for _, tax := range taxes {
+		if tax.Code == taxCode {
+			return &tax
+		}
+	}
+
+	return nil
+}
+
 func processClient(tx *sql.Tx, client *inputData.Client) (*entity.User, error) {
 	userService := service.GetUserService(db.GetUserDAO(tx))
 	return userService.UpsertUser(client)
@@ -72,7 +82,7 @@ func processInvoiceItems(
 		companyCode := invoiceItemInput.Company.Code
 		company := getCompanyByCode(companyCode, companies)
 		if company == nil {
-			return fmt.Errorf("Invalid company code %s", companyCode)
+			return fmt.Errorf("invalid company code %s", companyCode)
 		}
 		service := service.GetInvoiceItemService(tx, invoice, company)
 		invoiceItem, err := service.UpsertInvoiceItem(&invoiceItemInput)
@@ -80,6 +90,30 @@ func processInvoiceItems(
 			return err
 		}
 		invoice.Items = append(invoice.Items, *invoiceItem)
+	}
+
+	return nil
+}
+
+func processInvoiceTaxes(
+	tx *sql.Tx,
+	invoice *entity.Invoice,
+	taxes []entity.Tax,
+	inputTaxes []inputData.Tax,
+) error {
+	invoice.Taxes = make([]entity.InvoiceTax, 0, len(taxes))
+
+	for _, invoiceTaxInput := range inputTaxes {
+		tax := getTaxByCode(invoiceTaxInput.Code, taxes)
+		if tax == nil {
+			return fmt.Errorf("invalid tax code %s", invoiceTaxInput.Code)
+		}
+		invoiceTaxService := service.GetInvoiceTaxService(tx, invoice, tax)
+		invoiceTax, err := invoiceTaxService.UpsertInvoiceTax(&invoiceTaxInput)
+		if err != nil {
+			return err
+		}
+		invoice.Taxes = append(invoice.Taxes, *invoiceTax)
 	}
 
 	return nil
@@ -141,24 +175,32 @@ func main() {
 		return
 	}
 
+	err = processInvoiceTaxes(tx, invoice, taxes, invoiceInput.Taxes)
+	if err != nil {
+		fmt.Println(err)
+		tx.Rollback()
+		return
+	}
+
 	tx.Commit()
 
 	fmt.Println("---------- Summary ----------")
 
 	invoiceItems := invoice.Items
+	invoiceTaxes := invoice.Taxes
 
 	fmt.Printf("Invoice.file  : %s\n", invoice.FileName)
 	fmt.Printf("Invoice.Id .. : %d\n", invoice.Id)
 	fmt.Printf("User.uuid ... : %s\n", user.UUID.String())
 	fmt.Printf("User.id ..... : %d\n", user.Id)
 	fmt.Printf("User.name ... : %s\n", user.UserName)
-	fmt.Printf("Companies ... : %d\n", len(invoiceItems))
-	for _, invoiceItem := range invoiceItems {
+	fmt.Printf("Companies ... : %2d %-6s %-20s %3s %s\n", len(invoiceItems), "Code", "Name", "Qty", "Debit")
+	for i, invoiceItem := range invoiceItems {
 		company := invoiceItem.Company
-		fmt.Printf("%14s: %d, %s, %s %d\n", "", company.Id, company.Code, company.Name, invoiceItem.Qty)
+		fmt.Printf("%14s: %2d %6s %-20s %3d %5t\n", "", i+1, company.Code, company.Name, invoiceItem.Qty, invoiceItem.Debit)
 	}
 	fmt.Printf("Taxes ....... : %d\n", len(taxes))
-	for _, tax := range taxes {
-		fmt.Printf("%14s: %d, %s, %s\n", "", tax.Id, tax.Code, tax.Source)
+	for i, tax := range invoiceTaxes {
+		fmt.Printf("%14s: %d %10s %7.2f\n", "", i+1, tax.Tax.Code, tax.Value)
 	}
 }

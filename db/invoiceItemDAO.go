@@ -10,8 +10,6 @@ import (
 
 const queryInvoiceItemByInvoiceAndCompany = `SELECT
   bii_id,
-  cmp_id,
-  biv_id,
   bii_qty,
   bii_qty_balance,
   bii_price,
@@ -51,17 +49,14 @@ func (dao *InvoiceItemDAO) FindByInvoiceAndCompany() (*entity.InvoiceItem, error
 	defer stmt.Close()
 
 	var invoiceItem entity.InvoiceItem
-	var companyId int64
-	var invoiceId int64
+	var debit []uint8
 
 	qryErr := stmt.QueryRow(dao.invoice.Id, dao.company.Id).Scan(
 		&invoiceItem.Id,
-		&companyId,
-		&invoiceId,
 		&invoiceItem.Qty,
 		&invoiceItem.Balance,
 		&invoiceItem.Price,
-		&invoiceItem.Debit,
+		&debit,
 	)
 
 	if qryErr == sql.ErrNoRows {
@@ -71,6 +66,7 @@ func (dao *InvoiceItemDAO) FindByInvoiceAndCompany() (*entity.InvoiceItem, error
 	}
 
 	invoiceItem.Company = dao.company
+	invoiceItem.Debit = (debit[0] == 1)
 
 	return &invoiceItem, nil
 }
