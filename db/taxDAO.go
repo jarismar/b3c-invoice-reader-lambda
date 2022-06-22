@@ -41,16 +41,16 @@ func (dao *TaxDAO) FindByCode(code string) (*entity.Tax, error) {
 
 	var tax entity.Tax
 
-	qryErr := stmt.QueryRow(code).Scan(
+	err = stmt.QueryRow(code).Scan(
 		&tax.Id,
 		&tax.Code,
 		&tax.Source,
 	)
 
-	if qryErr == sql.ErrNoRows {
+	if err == sql.ErrNoRows {
 		return nil, nil
-	} else if qryErr != nil {
-		return nil, qryErr
+	} else if err != nil {
+		return nil, err
 	}
 
 	return &tax, nil

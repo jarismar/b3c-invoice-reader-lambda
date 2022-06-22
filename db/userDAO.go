@@ -43,17 +43,17 @@ func (dao *UserDAO) FindByExternalUUID(uuid string) (*entity.User, error) {
 
 	var user entity.User
 
-	qryErr := stmt.QueryRow(uuid).Scan(
+	err = stmt.QueryRow(uuid).Scan(
 		&user.Id,
 		&user.UUID,
 		&user.ExternalUUID,
 		&user.UserName,
 	)
 
-	if qryErr == sql.ErrNoRows {
+	if err == sql.ErrNoRows {
 		return nil, nil
-	} else if qryErr != nil {
-		return nil, qryErr
+	} else if err != nil {
+		return nil, err
 	}
 
 	return &user, nil

@@ -55,7 +55,7 @@ func (dao *InvoiceDAO) FindByFileName(filename string) (*entity.Invoice, error) 
 	var invoice entity.Invoice
 	var userId int64
 
-	qryErr := stmt.QueryRow(filename).Scan(
+	err = stmt.QueryRow(filename).Scan(
 		&invoice.Id,
 		&userId,
 		&invoice.FileName,
@@ -66,10 +66,10 @@ func (dao *InvoiceDAO) FindByFileName(filename string) (*entity.Invoice, error) 
 		&invoice.NetValue,
 	)
 
-	if qryErr == sql.ErrNoRows {
+	if err == sql.ErrNoRows {
 		return nil, nil
-	} else if qryErr != nil {
-		return nil, qryErr
+	} else if err != nil {
+		return nil, err
 	}
 
 	if userId != dao.user.Id {

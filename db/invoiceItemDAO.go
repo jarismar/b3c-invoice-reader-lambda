@@ -51,7 +51,7 @@ func (dao *InvoiceItemDAO) FindByInvoiceAndCompany() (*entity.InvoiceItem, error
 	var invoiceItem entity.InvoiceItem
 	var debit []uint8
 
-	qryErr := stmt.QueryRow(dao.invoice.Id, dao.company.Id).Scan(
+	err = stmt.QueryRow(dao.invoice.Id, dao.company.Id).Scan(
 		&invoiceItem.Id,
 		&invoiceItem.Qty,
 		&invoiceItem.Balance,
@@ -59,10 +59,10 @@ func (dao *InvoiceItemDAO) FindByInvoiceAndCompany() (*entity.InvoiceItem, error
 		&debit,
 	)
 
-	if qryErr == sql.ErrNoRows {
+	if err == sql.ErrNoRows {
 		return nil, nil
-	} else if qryErr != nil {
-		return nil, qryErr
+	} else if err != nil {
+		return nil, err
 	}
 
 	invoiceItem.Company = dao.company

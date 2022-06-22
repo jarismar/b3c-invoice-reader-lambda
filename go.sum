@@ -2,5 +2,5 @@ github.com/go-sql-driver/mysql v1.6.0 h1:BCTh4TKNUYmOmMUcQ3IipzF5prigylS7XXjEkfC
 github.com/go-sql-driver/mysql v1.6.0/go.mod h1:DCzpHaOWr8IXmIStZouvnhqoel9Qv2LBy8hT2VhHyBg=
 github.com/google/uuid v1.3.0 h1:t6JiXgmwXMjEs8VusXIJk2BXHsn+wx8BZdTaoZ5fu7I=
 github.com/google/uuid v1.3.0/go.mod h1:TIyPZe4MgqvfeYDBFedMoGGpEw/LqOeaOT+nhxU+yHo=
-github.com/jarismar/b3c-service-entities v0.0.5 h1:t0UFAB2Ir9HmQnYZiCGgFSiRm3SwTM5uTAiT0J/zYz4=
-github.com/jarismar/b3c-service-entities v0.0.5/go.mod h1:yfVJJ2PGXlaZrnK/bIDlCArIbMLB6s8qh+zhftUcEVA=
+github.com/jarismar/b3c-service-entities v0.0.9 h1:wZc/hrDpWb7r0gqQIfODvAJLhI5+UFk1AoVUoV0zL5I=
+github.com/jarismar/b3c-service-entities v0.0.9/go.mod h1:H3kL4i2YJjBQIL3dLzz3D5BjOok65/A7iFPGzEpUBo4=
