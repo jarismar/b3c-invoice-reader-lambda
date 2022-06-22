@@ -41,16 +41,16 @@ func (dao *CompanyDAO) FindByCode(code string) (*entity.Company, error) {
 
 	var company entity.Company
 
-	qryErr := stmt.QueryRow(code).Scan(
+	err = stmt.QueryRow(code).Scan(
 		&company.Id,
 		&company.Code,
 		&company.Name,
 	)
 
-	if qryErr == sql.ErrNoRows {
+	if err == sql.ErrNoRows {
 		return nil, nil
-	} else if qryErr != nil {
-		return nil, qryErr
+	} else if err != nil {
+		return nil, err
 	}
 
 	return &company, nil

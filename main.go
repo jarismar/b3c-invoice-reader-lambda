@@ -3,6 +3,7 @@ package main
 import (
 	"database/sql"
 	"fmt"
+	"os"
 
 	"github.com/jarismar/b3c-invoice-reader-lambda/db"
 	"github.com/jarismar/b3c-invoice-reader-lambda/inputData"
@@ -36,12 +37,28 @@ func processClient(tx *sql.Tx, client *inputData.Client) (*entity.User, error) {
 	return userService.UpsertUser(client)
 }
 
-func processCompanies(tx *sql.Tx, items []inputData.Item) ([]entity.Company, error) {
-	companyService := service.GetCompanyService(tx)
-	companies := make([]entity.Company, 0, len(items))
-
+func getInputCompaniesFromInvoice(items []inputData.Item) []inputData.Company {
+	inputCompanies := make([]inputData.Company, 0, len(items))
 	for _, item := range items {
-		company, err := companyService.UpsertCompany(&item.Company)
+		inputCompanies = append(inputCompanies, item.Company)
+	}
+	return inputCompanies
+}
+
+func getInputCompaniesFromEarnings(earnings []inputData.EarningEntry) []inputData.Company {
+	inputCompanies := make([]inputData.Company, 0, len(earnings))
+	for _, earning := range earnings {
+		inputCompanies = append(inputCompanies, earning.Company)
+	}
+	return inputCompanies
+}
+
+func processCompanies(tx *sql.Tx, inputCompanies []inputData.Company) ([]entity.Company, error) {
+	companyService := service.GetCompanyService(tx)
+	companies := make([]entity.Company, 0, len(inputCompanies))
+
+	for _, inputCompany := range inputCompanies {
+		company, err := companyService.UpsertCompany(&inputCompany)
 		if err != nil {
 			return nil, err
 		}
@@ -49,6 +66,24 @@ func processCompanies(tx *sql.Tx, items []inputData.Item) ([]entity.Company, err
 	}
 
 	return companies, nil
+}
+
+func getInputTaxesFromEarnings(earnings []inputData.EarningEntry) []inputData.Tax {
+	foundTaxes := make(map[string]bool)
+	inputTaxes := make([]inputData.Tax, 0, len(earnings))
+
+	for _, earning := range earnings {
+		for _, tax := range earning.Taxes {
+			if _, ok := foundTaxes[tax.Code]; ok {
+				continue
+			}
+
+			inputTaxes = append(inputTaxes, tax)
+			foundTaxes[tax.Code] = true
+		}
+	}
+
+	return inputTaxes
 }
 
 func processTaxes(tx *sql.Tx, inputTaxes []inputData.Tax) ([]entity.Tax, error) {
@@ -119,67 +154,94 @@ func processInvoiceTaxes(
 	return nil
 }
 
-func main() {
-	invoiceInput, err := reader.Read("./assets/2022_04_28_000125974.json")
+func processEarnings(
+	tx *sql.Tx,
+	inputEarnings []inputData.EarningEntry,
+	user *entity.User,
+	taxes []entity.Tax,
+	companies []entity.Company,
+) ([]entity.Earning, error) {
+	earnings := make([]entity.Earning, 0, len(inputEarnings))
+
+	for _, inputEarning := range inputEarnings {
+		company := getCompanyByCode(inputEarning.Company.Code, companies)
+		earningService := service.GetEarningService(tx, user, company)
+		earning, err := earningService.UpsertEarning(&inputEarning)
+		if err != nil {
+			return nil, err
+		}
+
+		earningTaxes := make([]entity.EarningTax, 0, len(inputEarning.Taxes))
+		for _, inputTax := range inputEarning.Taxes {
+			tax := getTaxByCode(inputTax.Code, taxes)
+			earningTaxService := service.GetEarningTaxService(tx, earning, tax)
+			earningTax, err := earningTaxService.UpsertEarningTax(&inputTax)
+			if err != nil {
+				return nil, err
+			}
+			earningTaxes = append(earningTaxes, *earningTax)
+		}
+
+		earning.Taxes = earningTaxes
+		earnings = append(earnings, *earning)
+	}
+
+	return earnings, nil
+}
+
+func processInvoiceFile(filePath string) error {
+	invoiceInput, err := reader.ReadInvoice(filePath)
 	if err != nil {
-		fmt.Println(err)
-		return
+		return err
 	}
 
 	conn, err := db.GetConnection()
 	if err != nil {
-		fmt.Println(err)
-		return
+		return err
 	}
 
 	defer conn.Close()
 
 	tx, err := conn.Begin()
 	if err != nil {
-		fmt.Println(err)
-		return
+		return err
 	}
 
 	user, err := processClient(tx, &invoiceInput.Client)
 	if err != nil {
-		fmt.Println(err)
 		tx.Rollback()
-		return
+		return err
 	}
 
-	companies, err := processCompanies(tx, invoiceInput.Items[0:])
+	inputCompanies := getInputCompaniesFromInvoice(invoiceInput.Items)
+	companies, err := processCompanies(tx, inputCompanies)
 	if err != nil {
-		fmt.Println(err)
 		tx.Rollback()
-		return
+		return err
 	}
 
 	taxes, err := processTaxes(tx, invoiceInput.Taxes[0:])
 	if err != nil {
-		fmt.Println(err)
 		tx.Rollback()
-		return
+		return err
 	}
 
 	invoice, err := processInvoice(tx, user, invoiceInput)
 	if err != nil {
-		fmt.Println(err)
 		tx.Rollback()
-		return
+		return err
 	}
 
 	err = processInvoiceItems(tx, invoice, companies, invoiceInput.Items[0:])
 	if err != nil {
-		fmt.Println(err)
 		tx.Rollback()
-		return
+		return err
 	}
 
 	err = processInvoiceTaxes(tx, invoice, taxes, invoiceInput.Taxes)
 	if err != nil {
-		fmt.Println(err)
 		tx.Rollback()
-		return
+		return err
 	}
 
 	tx.Commit()
@@ -202,5 +264,98 @@ func main() {
 	fmt.Printf("Taxes ....... : %d\n", len(taxes))
 	for i, tax := range invoiceTaxes {
 		fmt.Printf("%14s: %d %10s %7.2f\n", "", i+1, tax.Tax.Code, tax.Value)
+	}
+
+	return nil
+}
+
+func processEarningsFile(filePath string) error {
+	inputEarningsRecord, err := reader.ReadEarnings(filePath)
+	if err != nil {
+		return err
+	}
+
+	conn, err := db.GetConnection()
+	if err != nil {
+		return err
+	}
+
+	defer conn.Close()
+
+	tx, err := conn.Begin()
+	if err != nil {
+		return err
+	}
+
+	inputEarnings := inputEarningsRecord.Items
+
+	user, err := processClient(tx, &inputEarningsRecord.Client)
+	if err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	inputCompanies := getInputCompaniesFromEarnings(inputEarnings)
+	companies, err := processCompanies(tx, inputCompanies)
+	if err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	inputTaxes := getInputTaxesFromEarnings(inputEarnings)
+	taxes, err := processTaxes(tx, inputTaxes)
+	if err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	earnings, err := processEarnings(tx, inputEarnings, user, taxes, companies)
+	if err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	tx.Commit()
+
+	fmt.Println("---------- Summary ----------")
+	fmt.Printf("Earnings.file  : %s\n", filePath)
+	fmt.Printf("User.uuid ... : %s\n", user.UUID.String())
+	fmt.Printf("User.id ..... : %d\n", user.Id)
+	fmt.Printf("User.name ... : %s\n", user.UserName)
+
+	fmt.Printf("Earnings .... : %2d %-6s %7s %7s\n", len(earnings), "Code", "Raw", "Net")
+	for i, earning := range earnings {
+		fmt.Printf("%14s: %2d %-6s %7.2f %7.2f\n", "", i, earning.Company.Code, earning.RawValue, earning.NetValue)
+	}
+
+	return nil
+}
+
+func main() {
+	if len(os.Args) != 2 {
+		fmt.Println("usage: program <assetsDir>")
+		return
+	}
+
+	assetsDir := os.Args[1]
+	fmt.Printf("starting on dir %s\n", assetsDir)
+	files, err := reader.ReadAssets(assetsDir)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	for _, fileMeta := range files {
+		fmt.Printf("processing %s (%s)\n", fileMeta.FilePath, fileMeta.FileType)
+		var err error
+		if fileMeta.FileType == "ear" {
+			err = processEarningsFile(fileMeta.FilePath)
+		} else {
+			err = processInvoiceFile(fileMeta.FilePath)
+		}
+
+		if err != nil {
+			fmt.Println(err)
+		}
 	}
 }

@@ -44,15 +44,15 @@ func (dao *InvoiceTaxDAO) FindByInvoiceAndTax() (*entity.InvoiceTax, error) {
 
 	var invoiceTax entity.InvoiceTax
 
-	qryErr := stmt.QueryRow(dao.invoice.Id, dao.tax.Id).Scan(
+	err = stmt.QueryRow(dao.invoice.Id, dao.tax.Id).Scan(
 		&invoiceTax.Id,
 		&invoiceTax.Value,
 	)
 
-	if qryErr == sql.ErrNoRows {
+	if err == sql.ErrNoRows {
 		return nil, nil
-	} else if qryErr != nil {
-		return nil, qryErr
+	} else if err != nil {
+		return nil, err
 	}
 
 	invoiceTax.Tax = dao.tax
