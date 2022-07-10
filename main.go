@@ -12,6 +12,7 @@ import (
 	"github.com/jarismar/b3c-service-entities/entity"
 )
 
+// TODO move to utils / company
 func getCompanyByCode(companyCode string, companies []entity.Company) *entity.Company {
 	for _, company := range companies {
 		if company.Code == companyCode {
@@ -22,6 +23,7 @@ func getCompanyByCode(companyCode string, companies []entity.Company) *entity.Co
 	return nil
 }
 
+// TODO move to utils / tax
 func getTaxByCode(taxCode string, taxes []entity.Tax) *entity.Tax {
 	for _, tax := range taxes {
 		if tax.Code == taxCode {
@@ -189,6 +191,27 @@ func processEarnings(
 	return earnings, nil
 }
 
+func processSales(
+	tx *sql.Tx,
+	invoice *entity.Invoice,
+) ([]entity.Trade, error) {
+	trades := make([]entity.Trade, 0, len(invoice.Items))
+	for _, item := range invoice.Items {
+		if !item.Debit {
+			saleService := service.GetSaleService(tx, invoice, &item)
+			trade, err := saleService.UpsertSale()
+
+			if err != nil {
+				return nil, err
+			}
+
+			trades = append(trades, *trade)
+		}
+	}
+
+	return trades, nil
+}
+
 func processInvoiceFile(filePath string) error {
 	invoiceInput, err := reader.ReadInvoice(filePath)
 	if err != nil {
@@ -244,6 +267,12 @@ func processInvoiceFile(filePath string) error {
 		return err
 	}
 
+	trades, err := processSales(tx, invoice)
+	if err != nil {
+		tx.Rollback()
+		return err
+	}
+
 	tx.Commit()
 
 	fmt.Println("---------- Summary ----------")
@@ -256,14 +285,19 @@ func processInvoiceFile(filePath string) error {
 	fmt.Printf("User.uuid ... : %s\n", user.UUID.String())
 	fmt.Printf("User.id ..... : %d\n", user.Id)
 	fmt.Printf("User.name ... : %s\n", user.UserName)
-	fmt.Printf("Companies ... : %2d %-6s %-20s %3s %s\n", len(invoiceItems), "Code", "Name", "Qty", "Debit")
+	fmt.Printf("Companies ... : %-2d %-6s %-20s %3s %s\n", len(invoiceItems), "Code", "Name", "Qty", "Debit")
 	for i, invoiceItem := range invoiceItems {
 		company := invoiceItem.Company
-		fmt.Printf("%14s: %2d %6s %-20s %3d %5t\n", "", i+1, company.Code, company.Name, invoiceItem.Qty, invoiceItem.Debit)
+		fmt.Printf("%14s: %-2d %-6s %-20s %3d %5t\n", "", i+1, company.Code, company.Name, invoiceItem.Qty, invoiceItem.Debit)
 	}
-	fmt.Printf("Taxes ....... : %d\n", len(taxes))
+	fmt.Printf("Taxes ....... : %-2d\n", len(taxes))
 	for i, tax := range invoiceTaxes {
-		fmt.Printf("%14s: %d %10s %7.2f\n", "", i+1, tax.Tax.Code, tax.Value)
+		fmt.Printf("%14s: %-2d %-10s %7.2f\n", "", i+1, tax.Tax.Code, tax.Value)
+	}
+	fmt.Printf("Trades ...... : %-2d %-6s %-20s %3s\n", len(trades), "Code", "Name", "Qty")
+	for i, trade := range trades {
+		itemOut := trade.InvoiceItemOut
+		fmt.Printf("%14s: %-2d %-6s %-20s %3d\n", "", i+1, itemOut.Company.Code, itemOut.Company.Name, itemOut.Qty)
 	}
 
 	return nil
