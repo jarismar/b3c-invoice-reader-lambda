@@ -13,13 +13,20 @@ type InvoiceItemService struct {
 	invoiceItemDAO *db.InvoiceItemDAO
 	invoice        *entity.Invoice
 	company        *entity.Company
+	order          int64
 }
 
-func GetInvoiceItemService(tx *sql.Tx, invoice *entity.Invoice, company *entity.Company) *InvoiceItemService {
+func GetInvoiceItemService(
+	tx *sql.Tx,
+	invoice *entity.Invoice,
+	company *entity.Company,
+	order int64,
+) *InvoiceItemService {
 	return &InvoiceItemService{
-		invoiceItemDAO: db.GetInvoiceItemDAO(tx, invoice, company),
+		invoiceItemDAO: db.GetInvoiceItemDAO(tx, invoice, company, order),
 		invoice:        invoice,
 		company:        company,
+		order:          order,
 	}
 }
 
@@ -30,7 +37,7 @@ func (invoiceItemService *InvoiceItemService) insert(invoiceItemInput *inputData
 }
 
 func (invoiceItemService *InvoiceItemService) UpsertInvoiceItem(invoiceItemInput *inputData.Item) (*entity.InvoiceItem, error) {
-	invoiceItem, err := invoiceItemService.invoiceItemDAO.FindByInvoiceAndCompany()
+	invoiceItem, err := invoiceItemService.invoiceItemDAO.FindByInvoiceAndCompanyAndOrder()
 	if err != nil {
 		return nil, err
 	}
@@ -41,6 +48,6 @@ func (invoiceItemService *InvoiceItemService) UpsertInvoiceItem(invoiceItemInput
 
 	// TODO implement support for invoiceItem update
 
-	log.Printf("nothing to be done for invoiceItem [%s, %d]\n", invoiceItem.Company.Code, invoiceItem.Qty)
+	log.Printf("nothing to be done for invoiceItem [%s, %d, %d]\n", invoiceItem.Company.Code, invoiceItem.Qty, invoiceItem.Order)
 	return invoiceItem, nil
 }

@@ -29,7 +29,7 @@ func (saleService *SaleService) insert() (*entity.Trade, error) {
 
 	log.Printf("creating trade [%s, %d]\n", itemOut.Company.Name, itemOut.Qty)
 
-	invoiceItemDAO := db.GetInvoiceItemDAO(saleService.tx, saleService.invoice, nil)
+	invoiceItemDAO := db.GetInvoiceItemDAO(saleService.tx, saleService.invoice, nil, 0)
 	itemInList, err := invoiceItemDAO.SearchInvoiceItemForSale(itemOut)
 	if err != nil {
 		return nil, err

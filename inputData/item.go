@@ -5,4 +5,5 @@ type Item struct {
 	Qty     int64   `json:"qty"`
 	Price   float64 `json:"price"`
 	Debit   bool    `json:"debit"`
+	Order   int64   `json:"order"`
 }

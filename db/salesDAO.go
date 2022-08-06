@@ -70,7 +70,7 @@ func (dao *SalesDAO) FindByItemOut() (*entity.Trade, error) {
 		return nil, err
 	}
 
-	invoiceItemsDAO := GetInvoiceItemDAO(dao.conn, nil, nil)
+	invoiceItemsDAO := GetInvoiceItemDAO(dao.conn, nil, nil, 0)
 
 	for _, itemId := range itemIdsIn {
 		itemIn, err := invoiceItemsDAO.FindById(itemId)
