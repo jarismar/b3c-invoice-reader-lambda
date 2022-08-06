@@ -15,7 +15,7 @@ const queryInvoiceItemByInvoiceAndCompany = `SELECT
   bii_price,
   bii_debit
 FROM broker_invoice_item
-WHERE biv_id = ? AND cmp_id = ?`
+WHERE biv_id = ? AND cmp_id = ? AND bii_order = ?`
 
 const qryInvoiceItemById = `SELECT
   cmp_id,
@@ -23,7 +23,8 @@ const qryInvoiceItemById = `SELECT
   bii_qty,
   bii_qty_balance,
   bii_price,
-  bii_debit
+  bii_debit,
+  bii_order
 FROM broker_invoice_item
 WHERE bii_id = ?`
 
@@ -31,13 +32,14 @@ const searchInvoiceItemForSale = `SELECT
   bii.bii_id,
   bii.bii_qty,
   bii.bii_qty_balance,
-  bii.bii_price
+  bii.bii_price,
+  bii.bii_order
 FROM broker_invoice_item bii
 INNER JOIN broker_invoice biv ON bii.biv_id = biv.biv_id
 WHERE cmp_id = ?
   AND bii_qty_balance > 0
   AND bii_debit = 1
-ORDER BY biv.biv_market_date DESC`
+ORDER BY biv.biv_market_date DESC, bii.bii_order DESC`
 
 const insertInvoiceItemStmt = `INSERT INTO broker_invoice_item (
 	biv_id,
@@ -45,8 +47,9 @@ const insertInvoiceItemStmt = `INSERT INTO broker_invoice_item (
 	bii_qty,
 	bii_qty_balance,
 	bii_price,
-	bii_debit
-) VALUES (?,?,?,?,?,?)`
+	bii_debit,
+	bii_order
+) VALUES (?,?,?,?,?,?,?)`
 
 const updateItemBalanceStmt = `UPDATE broker_invoice_item SET
   bii_qty_balance = ?
@@ -56,13 +59,20 @@ type InvoiceItemDAO struct {
 	conn    *sql.Tx
 	invoice *entity.Invoice
 	company *entity.Company
+	order   int64
 }
 
-func GetInvoiceItemDAO(conn *sql.Tx, invoice *entity.Invoice, company *entity.Company) *InvoiceItemDAO {
+func GetInvoiceItemDAO(
+	conn *sql.Tx,
+	invoice *entity.Invoice,
+	company *entity.Company,
+	order int64,
+) *InvoiceItemDAO {
 	return &InvoiceItemDAO{
 		conn:    conn,
 		invoice: invoice,
 		company: company,
+		order:   order,
 	}
 }
 
@@ -86,6 +96,7 @@ func (dao *InvoiceItemDAO) FindById(id int64) (*entity.InvoiceItem, error) {
 		&item.Balance,
 		&item.Price,
 		&debit,
+		&item.Order,
 	)
 
 	// TODO load company
@@ -126,6 +137,7 @@ func (dao *InvoiceItemDAO) SearchInvoiceItemForSale(itemOut *entity.InvoiceItem)
 			&item.Qty,
 			&item.Balance,
 			&item.Price,
+			&item.Order,
 		)
 
 		if err != nil {
@@ -145,7 +157,7 @@ func (dao *InvoiceItemDAO) SearchInvoiceItemForSale(itemOut *entity.InvoiceItem)
 	return itemInvoiceList, nil
 }
 
-func (dao *InvoiceItemDAO) FindByInvoiceAndCompany() (*entity.InvoiceItem, error) {
+func (dao *InvoiceItemDAO) FindByInvoiceAndCompanyAndOrder() (*entity.InvoiceItem, error) {
 	stmt, err := dao.conn.Prepare(queryInvoiceItemByInvoiceAndCompany)
 	if err != nil {
 		return nil, err
@@ -156,7 +168,11 @@ func (dao *InvoiceItemDAO) FindByInvoiceAndCompany() (*entity.InvoiceItem, error
 	var invoiceItem entity.InvoiceItem
 	var debit []uint8
 
-	err = stmt.QueryRow(dao.invoice.Id, dao.company.Id).Scan(
+	err = stmt.QueryRow(
+		dao.invoice.Id,
+		dao.company.Id,
+		dao.order,
+	).Scan(
 		&invoiceItem.Id,
 		&invoiceItem.Qty,
 		&invoiceItem.Balance,
@@ -170,6 +186,7 @@ func (dao *InvoiceItemDAO) FindByInvoiceAndCompany() (*entity.InvoiceItem, error
 		return nil, err
 	}
 
+	invoiceItem.Order = dao.order
 	invoiceItem.Company = dao.company
 	invoiceItem.Debit = (debit[0] == 1)
 
@@ -191,6 +208,7 @@ func (dao *InvoiceItemDAO) CreateInvoiceItem(invoiceItemInput *inputData.Item) (
 		invoiceItemInput.Qty,
 		invoiceItemInput.Price,
 		invoiceItemInput.Debit,
+		invoiceItemInput.Order,
 	)
 
 	if err != nil {
@@ -209,9 +227,10 @@ func (dao *InvoiceItemDAO) CreateInvoiceItem(invoiceItemInput *inputData.Item) (
 		Balance: invoiceItemInput.Qty,
 		Price:   invoiceItemInput.Price,
 		Debit:   invoiceItemInput.Debit,
+		Order:   invoiceItemInput.Order,
 	}
 
-	log.Printf("created invoice item [%d, %s, %d]\n", lastId, dao.company.Code, invoiceItem.Qty)
+	log.Printf("created invoice item [%d, %d, %s, %d]\n", lastId, invoiceItem.Order, dao.company.Code, invoiceItem.Qty)
 
 	return &invoiceItem, nil
 }

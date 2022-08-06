@@ -121,7 +121,7 @@ func processInvoiceItems(
 		if company == nil {
 			return fmt.Errorf("invalid company code %s", companyCode)
 		}
-		service := service.GetInvoiceItemService(tx, invoice, company)
+		service := service.GetInvoiceItemService(tx, invoice, company, invoiceItemInput.Order)
 		invoiceItem, err := service.UpsertInvoiceItem(&invoiceItemInput)
 		if err != nil {
 			return err
@@ -196,9 +196,9 @@ func processSales(
 	invoice *entity.Invoice,
 ) ([]entity.Trade, error) {
 	trades := make([]entity.Trade, 0, len(invoice.Items))
-	for _, item := range invoice.Items {
+	for i, item := range invoice.Items {
 		if !item.Debit {
-			saleService := service.GetSaleService(tx, invoice, &item)
+			saleService := service.GetSaleService(tx, invoice, &invoice.Items[i])
 			trade, err := saleService.UpsertSale()
 
 			if err != nil {
