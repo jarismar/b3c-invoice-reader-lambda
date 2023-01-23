@@ -2,9 +2,10 @@
 
 Read invoice, validate and populate database with all entities from the invoice.
 
-## Environment
+## AWS Environment
 
-Files are read from this S3 Bucket `b3c-data/invoice`
+Files are read from this S3 Bucket `b3c-data/invoice/<userID>/<yyyy_mm>/`
+Files are set to auto-archive in 90s after they are created
 
 ## Dependencies
 
@@ -15,3 +16,6 @@ Files are read from this S3 Bucket `b3c-data/invoice`
 ## References
 
 1. [AWS Golang SDK v2](https://github.com/aws/aws-sdk-go-v2)
+2. [AWS Lambda - Go function handler](https://docs.aws.amazon.com/lambda/latest/dg/golang-handler.html)
+3. [AWS Lambda - Database Proxy](https://docs.aws.amazon.com/lambda/latest/dg/configuration-database.html)
+4. [How To Write Unit Tests in Go](https://www.digitalocean.com/community/tutorials/how-to-write-unit-tests-in-go-using-go-test-and-the-testing-package)

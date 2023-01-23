@@ -1,4 +1,4 @@
-package inputData
+package input
 
 type Company struct {
 	Code string `json:"code"`

@@ -2,49 +2,45 @@ package db
 
 import (
 	"database/sql"
-	"fmt"
 	"log"
 
-	"github.com/jarismar/b3c-invoice-reader-lambda/inputData"
-	"github.com/jarismar/b3c-invoice-reader-lambda/utils"
 	"github.com/jarismar/b3c-service-entities/entity"
 )
 
-const qryCompanyByCode = `SELECT
-  cmp_id,
-  cmp_code,
-  cmp_name
-FROM company
-WHERE cmp_code = ?
-`
-const insertCompanyStmt = "INSERT INTO company (cmp_code, cmp_name) VALUES (?,?)"
-
-const updateCompanyStmt = "UPDATE company SET cmp_name = ? WHERE cmp_id = ?"
-
 type CompanyDAO struct {
-	conn *sql.Tx
+	tx      *sql.Tx
+	company *entity.Company
 }
 
-func GetCompanyDAO(conn *sql.Tx) *CompanyDAO {
+func GetCompanyDAO(tx *sql.Tx, company *entity.Company) *CompanyDAO {
 	return &CompanyDAO{
-		conn: conn,
+		tx:      tx,
+		company: company,
 	}
 }
 
-func (dao *CompanyDAO) FindByCode(code string) (*entity.Company, error) {
-	stmt, err := dao.conn.Prepare(qryCompanyByCode)
+func (dao *CompanyDAO) GetCompany() (*entity.Company, error) {
+	query := `SELECT
+		cmp_id,
+		cmp_code,
+		cmp_name
+  	FROM company
+  	WHERE cmp_code = ?`
+
+	stmt, err := dao.tx.Prepare(query)
+
 	if err != nil {
 		return nil, err
 	}
 
 	defer stmt.Close()
 
-	var company entity.Company
+	var companyRec entity.Company
 
-	err = stmt.QueryRow(code).Scan(
-		&company.Id,
-		&company.Code,
-		&company.Name,
+	err = stmt.QueryRow(dao.company.Code).Scan(
+		&companyRec.Id,
+		&companyRec.Code,
+		&companyRec.Name,
 	)
 
 	if err == sql.ErrNoRows {
@@ -53,60 +49,59 @@ func (dao *CompanyDAO) FindByCode(code string) (*entity.Company, error) {
 		return nil, err
 	}
 
-	return &company, nil
+	log.Printf(
+		"companyDAO.CreateCompany: found company [%d, %s, %s]",
+		companyRec.Id,
+		companyRec.Code,
+		companyRec.Name,
+	)
+
+	return &companyRec, nil
 }
 
-func (dao *CompanyDAO) CreateCompany(inputCompany *inputData.Company) (*entity.Company, error) {
-	stmt, err := dao.conn.Prepare(insertCompanyStmt)
+func (dao *CompanyDAO) CreateCompany() (*entity.Company, error) {
+	insertStmt := `INSERT INTO company (
+		cmp_code,
+		cmp_name
+	) VALUES (?,?)`
+
+	stmt, err := dao.tx.Prepare(insertStmt)
+
 	if err != nil {
 		return nil, err
 	}
 
 	defer stmt.Close()
 
-	res, err := stmt.Exec(inputCompany.Code, inputCompany.Name)
+	company := dao.company
+
+	res, err := stmt.Exec(
+		company.Code,
+		company.Name,
+	)
+
 	if err != nil {
 		return nil, err
 	}
 
 	lastId, err := res.LastInsertId()
+
 	if err != nil {
 		return nil, err
 	}
 
-	company := entity.Company{
+	companyRec := &entity.Company{
 		Id:   lastId,
-		Code: inputCompany.Code,
-		Name: inputCompany.Name,
+		Code: company.Code,
+		Name: company.Name,
 	}
 
-	log.Printf("created company [%03d, %s, %s]\n", company.Id, company.Code, company.Name)
-	return &company, nil
-}
+	log.Printf(
+		"companyDAO.CreateCompany: created new company [%d, %s, %s]",
+		companyRec.Id,
+		companyRec.Code,
+		companyRec.Name,
+	)
 
-func (dao *CompanyDAO) UpdateCompany(company *entity.Company) error {
-	stmt, err := dao.conn.Prepare(updateCompanyStmt)
-	if err != nil {
-		return err
-	}
-
-	defer stmt.Close()
-
-	res, err := stmt.Exec(company.Name, company.Name)
-	if err != nil {
-		return err
-	}
-
-	rowCnt, err := res.RowsAffected()
-	if err != nil {
-		return err
-	}
-
-	if rowCnt != 1 {
-		details := fmt.Sprintf("expected 1 found %d rows", rowCnt)
-		return utils.GetError("CompanyDAO::UpdateCompany", "ERR_DB_001", details)
-	}
-
-	log.Printf("updated company [%03d, %s, %s]\n", company.Id, company.Code, company.Name)
-	return nil
+	return companyRec, nil
 }
