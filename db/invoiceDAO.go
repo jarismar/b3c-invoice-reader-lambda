@@ -3,111 +3,85 @@ package db
 import (
 	"database/sql"
 	"log"
-	"time"
 
-	"github.com/jarismar/b3c-invoice-reader-lambda/inputData"
-	"github.com/jarismar/b3c-invoice-reader-lambda/utils"
 	"github.com/jarismar/b3c-service-entities/entity"
 )
 
-const qryInvoiceByFilename = `SELECT
-  biv_id,
-  usr_id,
-  biv_filename,
-  biv_number,
-  biv_market_date,
-  biv_billing_date,
-  biv_raw_value,
-  biv_net_value
-FROM broker_invoice
-WHERE biv_filename = ?`
-
-const insertInvoiceStmt = `INSERT INTO broker_invoice (
-  usr_id,
-  biv_filename,
-  biv_number,
-  biv_market_date,
-  biv_billing_date,
-  biv_raw_value,
-  biv_net_value
-) VALUES (?,?,?,?,?,?,?)`
-
 type InvoiceDAO struct {
-	conn *sql.Tx
-	user *entity.User
+	tx      *sql.Tx
+	invoice *entity.Invoice
 }
 
-func GetInvoiceDAO(conn *sql.Tx, user *entity.User) *InvoiceDAO {
+func GetInvoiceDAO(tx *sql.Tx, invoice *entity.Invoice) *InvoiceDAO {
 	return &InvoiceDAO{
-		conn: conn,
-		user: user,
+		tx:      tx,
+		invoice: invoice,
 	}
 }
 
-func (dao *InvoiceDAO) FindByFileName(filename string) (*entity.Invoice, error) {
-	stmt, err := dao.conn.Prepare(qryInvoiceByFilename)
+func (dao *InvoiceDAO) IsNewInvoice() (bool, error) {
+	filename := dao.invoice.FileName
+	query := `SELECT biv_id FROM broker_invoice WHERE biv_filename = ?`
+	stmt, err := dao.tx.Prepare(query)
+
 	if err != nil {
-		return nil, err
+		return false, err
 	}
 
 	defer stmt.Close()
 
-	var invoice entity.Invoice
-	var userId int64
+	var invoiceID int64
 
 	err = stmt.QueryRow(filename).Scan(
-		&invoice.Id,
-		&userId,
-		&invoice.FileName,
-		&invoice.Number,
-		&invoice.MarketDate,
-		&invoice.BillingDate,
-		&invoice.RawValue,
-		&invoice.NetValue,
+		&invoiceID,
 	)
 
 	if err == sql.ErrNoRows {
-		return nil, nil
+		return true, nil
 	} else if err != nil {
-		return nil, err
+		return false, err
 	}
 
-	if userId != dao.user.Id {
-		utils.GetError("InvoiceDAO::FindByFileName", "ERR_SYS_001", "user id mismatch")
-	}
+	log.Printf("invoiceDAO.IsNew: invoice already exists [%d, %s]", invoiceID, filename)
 
-	invoice.User = dao.user
-
-	return &invoice, nil
+	return true, nil
 }
 
-func (dao *InvoiceDAO) CreateInvoice(invoiceInput *inputData.Invoice) (*entity.Invoice, error) {
-	stmt, err := dao.conn.Prepare(insertInvoiceStmt)
+func (dao *InvoiceDAO) CreateInvoice() (*entity.Invoice, error) {
+	insertStmt := `INSERT INTO broker_invoice (
+		usr_id,
+		tgr_id,
+		biv_filename,
+		biv_number,
+		biv_market_date,
+		biv_billing_date,
+		biv_raw_value,
+		biv_net_value,
+		biv_total_sold,
+		biv_total_acquired
+	  ) VALUES (?,?,?,?,?,?,?,?,?,?)`
+
+	stmt, err := dao.tx.Prepare(insertStmt)
 	if err != nil {
 		return nil, err
 	}
 
 	defer stmt.Close()
 
-	marketDate, err := time.Parse(time.RFC3339, invoiceInput.MarketDate)
-	if err != nil {
-		return nil, err
-	}
-
-	billingDate, err := time.Parse(time.RFC3339, invoiceInput.BillingDate)
-	if err != nil {
-		return nil, err
-	}
-
+	invoice := dao.invoice
 	res, err := stmt.Exec(
-		dao.user.Id,
-		invoiceInput.FileName,
-		invoiceInput.InvoiceNum,
-		marketDate,
-		billingDate,
-		invoiceInput.RawValue,
-		invoiceInput.NetValue,
+		invoice.User.Id,
+		invoice.TaxGroup.Id,
+		invoice.FileName,
+		invoice.Number,
+		invoice.MarketDate,
+		invoice.BillingDate,
+		invoice.RawValue,
+		invoice.NetValue,
+		invoice.TotalSold,
+		invoice.TotalAcquired,
 	)
+
 	if err != nil {
 		return nil, err
 	}
@@ -117,18 +91,26 @@ func (dao *InvoiceDAO) CreateInvoice(invoiceInput *inputData.Invoice) (*entity.I
 		return nil, err
 	}
 
-	invoice := entity.Invoice{
-		Id:          lastId,
-		Number:      invoiceInput.InvoiceNum,
-		User:        dao.user,
-		FileName:    invoiceInput.FileName,
-		MarketDate:  marketDate,
-		BillingDate: billingDate,
-		RawValue:    invoiceInput.RawValue,
-		NetValue:    invoiceInput.NetValue,
+	invoiceRec := &entity.Invoice{
+		Id:            lastId,
+		Number:        invoice.Number,
+		User:          invoice.User,
+		TaxGroup:      invoice.TaxGroup,
+		FileName:      invoice.FileName,
+		MarketDate:    invoice.MarketDate,
+		BillingDate:   invoice.BillingDate,
+		RawValue:      invoice.RawValue,
+		NetValue:      invoice.NetValue,
+		TotalSold:     invoice.TotalSold,
+		TotalAcquired: invoice.TotalAcquired,
+		Items:         invoice.Items,
 	}
 
-	log.Printf("created invoice [%d, %s]\n", invoice.Id, invoice.FileName)
+	log.Printf(
+		"invoiceDAO.CreateInvoice: created new invoice [%d, %s]",
+		invoiceRec.Id,
+		invoiceRec.FileName,
+	)
 
-	return &invoice, nil
+	return invoiceRec, nil
 }

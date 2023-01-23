@@ -2,69 +2,44 @@ package db
 
 import (
 	"database/sql"
-	"fmt"
 	"log"
 
-	"github.com/jarismar/b3c-invoice-reader-lambda/inputData"
-	"github.com/jarismar/b3c-invoice-reader-lambda/utils"
 	"github.com/jarismar/b3c-service-entities/entity"
 )
 
-const qryTaxByCode = `SELECT
-  tax_id,
-  tax_code,
-  tax_source
-FROM tax
-WHERE tax_code = ?`
-
-const insertTaxStmt = "INSERT INTO tax (tax_code, tax_source) VALUES (?,?)"
-
-const updateTaxStmt = "UPDATE tax SET tax_source = ? WHERE tax_id = ?"
-
 type TaxDAO struct {
-	conn *sql.Tx
+	tx  *sql.Tx
+	tax *entity.Tax
 }
 
-func GetTaxDAO(conn *sql.Tx) *TaxDAO {
+func GetTaxDAO(tx *sql.Tx, tax *entity.Tax) *TaxDAO {
 	return &TaxDAO{
-		conn: conn,
+		tx:  tx,
+		tax: tax,
 	}
 }
 
-func (dao *TaxDAO) FindByCode(code string) (*entity.Tax, error) {
-	stmt, err := dao.conn.Prepare(qryTaxByCode)
+func (dao *TaxDAO) CreateTax() (*entity.Tax, error) {
+	insertStmt := `INSERT INTO tax (
+		tax_code,
+		tax_source,
+		tax_rate
+	) VALUES (?,?,?)`
+
+	stmt, err := dao.tx.Prepare(insertStmt)
+
 	if err != nil {
 		return nil, err
 	}
 
 	defer stmt.Close()
 
-	var tax entity.Tax
-
-	err = stmt.QueryRow(code).Scan(
-		&tax.Id,
-		&tax.Code,
-		&tax.Source,
+	res, err := stmt.Exec(
+		dao.tax.Code,
+		dao.tax.Source,
+		dao.tax.Rate,
 	)
 
-	if err == sql.ErrNoRows {
-		return nil, nil
-	} else if err != nil {
-		return nil, err
-	}
-
-	return &tax, nil
-}
-
-func (dao *TaxDAO) CreateTax(taxInput *inputData.Tax) (*entity.Tax, error) {
-	stmt, err := dao.conn.Prepare(insertTaxStmt)
-	if err != nil {
-		return nil, err
-	}
-
-	defer stmt.Close()
-
-	res, err := stmt.Exec(taxInput.Code, taxInput.Source)
 	if err != nil {
 		return nil, err
 	}
@@ -74,41 +49,20 @@ func (dao *TaxDAO) CreateTax(taxInput *inputData.Tax) (*entity.Tax, error) {
 		return nil, err
 	}
 
-	tax := entity.Tax{
+	tax := &entity.Tax{
 		Id:     lastId,
-		Code:   taxInput.Code,
-		Source: taxInput.Source,
+		Code:   dao.tax.Code,
+		Source: dao.tax.Source,
+		Rate:   dao.tax.Rate,
 	}
 
-	log.Printf("created tax [%d, %s, %s]\n", tax.Id, tax.Code, tax.Source)
+	log.Printf(
+		"dao.taxDAO: created tax [%d, %s, %s, %f]\n",
+		tax.Id,
+		tax.Code,
+		tax.Source,
+		tax.Rate,
+	)
 
-	return &tax, nil
-}
-
-func (dao *TaxDAO) UpdateTax(tax *entity.Tax) error {
-	stmt, err := dao.conn.Prepare(updateTaxStmt)
-	if err != nil {
-		return err
-	}
-
-	defer stmt.Close()
-
-	res, err := stmt.Exec(tax.Source, tax.Id)
-	if err != nil {
-		return err
-	}
-
-	rowCnt, err := res.RowsAffected()
-	if err != nil {
-		return err
-	}
-
-	if rowCnt != 1 {
-		details := fmt.Sprintf("expected 1 found %d rows", rowCnt)
-		return utils.GetError("TaxDAO::UpdateTax", "ERR_DB_001", details)
-	}
-
-	log.Printf("updated tax [%d, %s, %s] \n", tax.Id, tax.Code, tax.Source)
-
-	return nil
+	return tax, nil
 }

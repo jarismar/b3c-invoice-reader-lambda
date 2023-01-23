@@ -1,4 +1,4 @@
-package inputData
+package input
 
 type Item struct {
 	Company Company `json:"company"`

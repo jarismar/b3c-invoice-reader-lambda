@@ -1,4 +1,4 @@
-package inputData
+package input
 
 type Client struct {
 	Id   string `json:"id"`
