@@ -19,6 +19,47 @@ func GetTaxDAO(tx *sql.Tx, tax *entity.Tax) *TaxDAO {
 	}
 }
 
+func (dao *TaxDAO) LoadTax() (*entity.Tax, error) {
+	queryStmt := `SELECT
+		tax_id,
+		tax_source,
+		tax_rate
+	FROM tax
+	WHERE tax_code = ?`
+
+	stmt, err := dao.tx.Prepare(queryStmt)
+
+	if err != nil {
+		return nil, err
+	}
+
+	defer stmt.Close()
+
+	var taxRec entity.Tax
+
+	err = stmt.QueryRow(dao.tax.Code).Scan(
+		&taxRec.Id,
+		&taxRec.Source,
+		&taxRec.Rate,
+	)
+
+	if err == sql.ErrNoRows {
+		return nil, nil
+	} else if err != nil {
+		return nil, err
+	}
+
+	taxRec.Code = dao.tax.Code
+
+	log.Printf(
+		"TaxDAO.LoadTax: found tax [%d, %s]",
+		taxRec.Id,
+		taxRec.Code,
+	)
+
+	return &taxRec, err
+}
+
 func (dao *TaxDAO) CreateTax() (*entity.Tax, error) {
 	insertStmt := `INSERT INTO tax (
 		tax_code,

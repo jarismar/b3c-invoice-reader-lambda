@@ -105,12 +105,17 @@ func (tbsvc *TradeBatchService) adjustTradeBatchTaxes(tradeBatch *entity.TradeBa
 
 	taxBaseValue := currentResults - tradeBatch.AccLoss
 
-	if taxBaseValue < 0 {
-		taxBaseValue = 0
-	}
-
 	irFeeInstance.TaxValue = irFee
 	irFeeInstance.BaseValue = taxBaseValue
+
+	taxGroup.Taxes[0] = *irFeeInstance // TODO taxGroup.Taxes needs to use ptrs
+
+	log.Printf(
+		"TradeBatchService.adjustTradeBatchTaxes: id = %d, tax = %f, bv = %f",
+		irFeeInstance.Id,
+		irFeeInstance.TaxValue,
+		irFeeInstance.BaseValue,
+	)
 
 	return tradeBatch
 }
@@ -187,9 +192,19 @@ func (tbsvc *TradeBatchService) FindTradeBatch(marketDate time.Time) (*entity.Tr
 func (tbsvc *TradeBatchService) ProcessTrade(trade *entity.Trade) *entity.TradeBatch {
 	tradeBatch := tbsvc.tradeBatch
 
+	itemTrade := trade.Item.Price * float64(trade.Item.Qty)
+
 	tradeBatch.CurrentResults = tradeBatch.CurrentResults + trade.RawResults
-	tradeBatch.TotalTrade = tradeBatch.TotalTrade + trade.RawResults
+	tradeBatch.TotalTrade = tradeBatch.TotalTrade + itemTrade
 	tradeBatch.TotalTax = tradeBatch.TotalTax + trade.TotalTax
+
+	log.Printf(
+		"TradeBatchService.ProcessTrade: id = %d, cr = %f, trd = %f, tax = %f",
+		tradeBatch.Id,
+		tradeBatch.CurrentResults,
+		tradeBatch.TotalTrade,
+		tradeBatch.TotalTax,
+	)
 
 	return tbsvc.adjustTradeBatchTaxes(tradeBatch)
 }

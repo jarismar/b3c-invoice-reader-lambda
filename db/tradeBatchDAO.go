@@ -48,7 +48,7 @@ func (dao *TradeBatchDAO) GetTradeBatch() (*entity.TradeBatch, error) {
 
 	err = stmt.QueryRow(
 		tradeBatch.User.Id,
-		tradeBatch.StartDate,
+		tradeBatch.StartDate.Format(time.RFC3339),
 	).Scan(
 		&tradeBatchRec.Id,
 		&taxGroupId,
@@ -59,6 +59,11 @@ func (dao *TradeBatchDAO) GetTradeBatch() (*entity.TradeBatch, error) {
 	)
 
 	if err == sql.ErrNoRows {
+		log.Printf(
+			"TradeBatchDAO.GetTradeBatch: not found [usr = %d, startDate = %s]",
+			tradeBatch.User.Id,
+			tradeBatch.StartDate,
+		)
 		return nil, nil
 	} else if err != nil {
 		return nil, err
@@ -101,7 +106,7 @@ func (dao *TradeBatchDAO) GetLastTradeBatch() (*entity.TradeBatch, error) {
 	FROM trade_batch
 	WHERE usr_id = ?
 	ORDER BY trb_start_date DESC
-	LIMI 1`
+	LIMIT 1`
 
 	stmt, err := dao.tx.Prepare(query)
 
@@ -120,6 +125,7 @@ func (dao *TradeBatchDAO) GetLastTradeBatch() (*entity.TradeBatch, error) {
 	).Scan(
 		&tradeBatchRec.Id,
 		&taxGroupId,
+		&tradeBatchRec.StartDate,
 		&tradeBatchRec.AccLoss,
 		&tradeBatchRec.CurrentResults,
 		&tradeBatchRec.TotalTrade,
@@ -166,7 +172,7 @@ func (dao *TradeBatchDAO) CreateTradeBatch() (*entity.TradeBatch, error) {
 		trb_current_results,
 		trb_total_trade,
 		trb_total_tax
-	) VALUES (?,?,?,?,?,?)`
+	) VALUES (?,?,?,?,?,?,?)`
 
 	stmt, err := dao.tx.Prepare(insertStmt)
 
@@ -241,6 +247,7 @@ func (dao *TradeBatchDAO) UpdateTradeBatch() error {
 		tradeBatch.CurrentResults,
 		tradeBatch.TotalTrade,
 		tradeBatch.TotalTax,
+		tradeBatch.Id,
 	)
 
 	if err != nil {

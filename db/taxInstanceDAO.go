@@ -173,15 +173,22 @@ func (dao *TaxInstanceDAO) UpdateTaxInstance() error {
 	}
 
 	if rowCnt != 1 {
+		log.Printf(
+			"TaxInstanceDAO.UpdateTaxInstance: error updating tax instance [%d, tv = %f, bv = %f]",
+			taxInstance.Id,
+			taxInstance.TaxValue,
+			taxInstance.BaseValue,
+		)
 		details := fmt.Sprintf("expected 1 row, found %d rows", rowCnt)
 		return utils.GetError("TaxInstanceDAO.UpdateTaxInstance", "ERR_DB_001", details)
 	}
 
 	log.Printf(
-		"TaxInstanceDAO.UpdateTaxInstance: record updated [%d, %s, v = %f]",
+		"TaxInstanceDAO.UpdateTaxInstance: record updated [%d, %s, tv = %f, bv = %f]",
 		taxInstance.Id,
 		taxInstance.Tax.Code,
 		taxInstance.TaxValue,
+		taxInstance.BaseValue,
 	)
 
 	return nil

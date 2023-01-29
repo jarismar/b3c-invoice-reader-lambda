@@ -192,9 +192,9 @@ func (tsvc *TradeService) adjustCompanyBatch() (*entity.CompanyBatch, error) {
 		return nil, err
 	}
 
-	totalSold := companyBatch.AvgPrice * float64(invoiceItem.Qty)
-	companyBatch.Qty = companyBatch.Qty - invoiceItem.Qty
-	companyBatch.TotalPrice = companyBatch.TotalPrice - totalSold
+	newQty := companyBatch.Qty - invoiceItem.Qty
+	companyBatch.Qty = newQty
+	companyBatch.TotalPrice = companyBatch.AvgPrice * float64(newQty)
 
 	companyBatchDAO := db.GetCompanyBatchDAO(
 		tsvc.tx,
@@ -231,7 +231,7 @@ func (tsvc *TradeService) ProcessTrade() (*entity.Trade, error) {
 	aqPrice := companyBatch.AvgPrice * float64(invoiceItem.Qty)
 	slPrice := invoiceItem.Price * float64(invoiceItem.Qty)
 	rawResults := slPrice - aqPrice
-	avgPrice := (slPrice + totalTax) / float64(invoiceItem.Qty)
+	avgPrice := (slPrice - totalTax) / float64(invoiceItem.Qty)
 
 	trade := &entity.Trade{
 		TaxGroup:     taxGroup,
@@ -242,6 +242,7 @@ func (tsvc *TradeService) ProcessTrade() (*entity.Trade, error) {
 		Qty:          invoiceItem.Qty,
 		AvgPrice:     avgPrice,
 		RawResults:   rawResults,
+		RawPrice:     invoiceItem.Price,
 		TotalTax:     totalTax,
 	}
 

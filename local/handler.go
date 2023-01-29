@@ -53,13 +53,13 @@ func Handler() (bool, error) {
 
 	// TODO self checking
 
-	report := report.GetConsoleReport(invoiceRec)
-	report.Run()
-
 	if err != nil {
 		tx.Rollback()
 		return false, err
 	}
+
+	report := report.GetConsoleReport(invoiceRec)
+	report.Run()
 
 	tx.Commit()
 	// tx.Rollback()

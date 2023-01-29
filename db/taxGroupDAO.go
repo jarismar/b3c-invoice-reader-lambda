@@ -29,14 +29,14 @@ func (dao *TaxGroupDAO) GetTaxGroup() (*entity.TaxGroup, error) {
 		tin.tin_market_date,
 		tin.tin_tax_value,
 		tin.tin_base_value,
-		tin.tin_tax_rate
+		tin.tin_tax_rate,
 		tax.tax_code,
 		tax.tax_source,
 		tax.tax_rate
-		FROM tax_group tgr
+	FROM tax_group tgr
 	INNER JOIN tax_instance tin ON tgr.tgr_id = tin.tgr_id
 	INNER JOIN tax ON tin.tax_id = tax.tax_id
-	WHERE tgr_id = ?`
+	WHERE tgr.tgr_id = ?`
 
 	stmt, err := dao.tx.Prepare(query)
 
