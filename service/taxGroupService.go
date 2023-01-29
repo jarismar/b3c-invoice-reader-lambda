@@ -48,10 +48,20 @@ func (tgsvc *TaxGroupService) CreateTaxGroup() (*entity.TaxGroup, error) {
 			taxRec = tgsvc.taxStore.Get(taxInstance.Tax)
 		} else {
 			taxDAO := db.GetTaxDAO(tgsvc.tx, taxInstance.Tax)
-			taxRec, err = taxDAO.CreateTax()
+
+			taxRec, err = taxDAO.LoadTax()
+
 			if err != nil {
 				return nil, err
 			}
+
+			if taxRec == nil {
+				taxRec, err = taxDAO.CreateTax()
+				if err != nil {
+					return nil, err
+				}
+			}
+
 			tgsvc.taxStore.Put(taxRec)
 		}
 

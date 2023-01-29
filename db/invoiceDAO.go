@@ -44,7 +44,7 @@ func (dao *InvoiceDAO) IsNewInvoice() (bool, error) {
 
 	log.Printf("invoiceDAO.IsNew: invoice already exists [%d, %s]", invoiceID, filename)
 
-	return true, nil
+	return false, nil
 }
 
 func (dao *InvoiceDAO) CreateInvoice() (*entity.Invoice, error) {

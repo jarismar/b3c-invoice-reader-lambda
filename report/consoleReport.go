@@ -185,13 +185,13 @@ func (report *ConsoleReport) printTrade() {
 		irrFee := utils.GetTaxValueByGroup(taxGroup, taxTypes.IRRFFEE)
 
 		fmt.Printf(
-			"%3d %8s %5d %7.2f %7.2f %10.2f %5.2f %5.2f %5.2f %5.2f %5.2f %5.2f %7d %7d %7d\n",
+			"%3d %8s %5d %7.2f %7.2f %10.2f %7.2f %7.2f %7.2f %7.2f %7.2f %7.2f %7d %7d %7d\n",
 			item.Order,
 			item.Company.Code,
 			trade.Qty,
 			trade.CompanyBatch.AvgPrice,
 			trade.AvgPrice,
-			trade.RawResults,
+			(trade.RawResults - trade.TotalTax),
 			trade.TotalTax,
 			setFee,
 			emlFee,
@@ -255,6 +255,7 @@ func (report *ConsoleReport) Run() error {
 
 	fmt.Println("===== Report =====")
 	fmt.Printf("User.name ........ : %s\n", user.UserName)
+	fmt.Printf("User.Id .......... : %d\n", user.Id)
 	fmt.Printf("User.UUID ........ : %s\n", user.UUID)
 	fmt.Printf("Invoice.Id ....... : %d\n", invoice.Id)
 	fmt.Printf("Invoice.Num ...... : %d\n", invoice.Number)

@@ -98,6 +98,13 @@ func (dao *CompanyBatchDAO) UpdateCompanyBatch() (*entity.CompanyBatch, error) {
 	)
 
 	if err != nil {
+		log.Printf(
+			"CompanyBatchDAO.UpdateCompanyBatch: error [id = %d, q = %d, avg = %f, tot = %f]",
+			companyBatch.Id,
+			companyBatch.Qty,
+			companyBatch.AvgPrice,
+			companyBatch.TotalPrice,
+		)
 		return nil, err
 	}
 
