@@ -23,7 +23,9 @@ func (dao *CompanyDAO) GetCompany() (*entity.Company, error) {
 	query := `SELECT
 		cmp_id,
 		cmp_code,
-		cmp_name
+		cmp_name,
+		cmp_bdr,
+		cmp_etf
   	FROM company
   	WHERE cmp_code = ?`
 
@@ -36,11 +38,15 @@ func (dao *CompanyDAO) GetCompany() (*entity.Company, error) {
 	defer stmt.Close()
 
 	var companyRec entity.Company
+	var bdr []uint8
+	var etf []uint8
 
 	err = stmt.QueryRow(dao.company.Code).Scan(
 		&companyRec.Id,
 		&companyRec.Code,
 		&companyRec.Name,
+		&bdr,
+		&etf,
 	)
 
 	if err == sql.ErrNoRows {
@@ -48,6 +54,9 @@ func (dao *CompanyDAO) GetCompany() (*entity.Company, error) {
 	} else if err != nil {
 		return nil, err
 	}
+
+	companyRec.BDR = (bdr[0] == 1)
+	companyRec.ETF = (etf[0] == 1)
 
 	log.Printf(
 		"companyDAO.CreateCompany: found company [%d, %s, %s]",
@@ -62,8 +71,10 @@ func (dao *CompanyDAO) GetCompany() (*entity.Company, error) {
 func (dao *CompanyDAO) CreateCompany() (*entity.Company, error) {
 	insertStmt := `INSERT INTO company (
 		cmp_code,
-		cmp_name
-	) VALUES (?,?)`
+		cmp_name,
+		cmp_bdr,
+		cmp_etf
+	) VALUES (?,?,?,?)`
 
 	stmt, err := dao.tx.Prepare(insertStmt)
 
@@ -78,6 +89,8 @@ func (dao *CompanyDAO) CreateCompany() (*entity.Company, error) {
 	res, err := stmt.Exec(
 		company.Code,
 		company.Name,
+		company.BDR,
+		company.ETF,
 	)
 
 	if err != nil {

@@ -172,7 +172,7 @@ func (dao *TaxInstanceDAO) UpdateTaxInstance() error {
 		return err
 	}
 
-	if rowCnt != 1 {
+	if rowCnt > 1 {
 		log.Printf(
 			"TaxInstanceDAO.UpdateTaxInstance: error updating tax instance [%d, tv = %f, bv = %f]",
 			taxInstance.Id,

@@ -5,8 +5,10 @@ github.com/go-sql-driver/mysql v1.7.0 h1:ueSltNNllEqE3qcWBTD0iQd3IpL/6U+mJxLkazJ
 github.com/go-sql-driver/mysql v1.7.0/go.mod h1:OXbVy3sEdcQ2Doequ6Z5BW6fXNQTmx+9S1MCJN5yJMI=
 github.com/google/uuid v1.3.0 h1:t6JiXgmwXMjEs8VusXIJk2BXHsn+wx8BZdTaoZ5fu7I=
 github.com/google/uuid v1.3.0/go.mod h1:TIyPZe4MgqvfeYDBFedMoGGpEw/LqOeaOT+nhxU+yHo=
-github.com/jarismar/b3c-service-entities v0.0.22 h1:+cDRVMp/jPhqlVBmteld+2P7rUEKahX9tRwidJcWUYY=
-github.com/jarismar/b3c-service-entities v0.0.22/go.mod h1:H3kL4i2YJjBQIL3dLzz3D5BjOok65/A7iFPGzEpUBo4=
+github.com/jarismar/b3c-service-entities v0.0.23 h1:z0/YsYPmMSvlE9PRqbnjvMcPtzFMwkkNN9a+b6RfOYY=
+github.com/jarismar/b3c-service-entities v0.0.23/go.mod h1:H3kL4i2YJjBQIL3dLzz3D5BjOok65/A7iFPGzEpUBo4=
+github.com/jarismar/b3c-service-entities v0.0.25 h1:E+V7iEOhX2Gf6lsJRplmHFE66248CPNeQTZcw4PUZA4=
+github.com/jarismar/b3c-service-entities v0.0.25/go.mod h1:H3kL4i2YJjBQIL3dLzz3D5BjOok65/A7iFPGzEpUBo4=
 github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=
 github.com/stretchr/testify v1.7.2 h1:4jaiDzPyXQvSd7D0EjG45355tLlV3VOECpq10pLC+8s=
 gopkg.in/yaml.v3 v3.0.1 h1:fxVm/GzAzEWqLHuvctI91KS9hhNmmWOoWu0XTYJS7CA=

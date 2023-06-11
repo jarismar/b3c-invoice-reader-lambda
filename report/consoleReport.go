@@ -47,23 +47,38 @@ func (report *ConsoleReport) printTaxGroup(taxGroupName string, taxGroup *entity
 	}
 }
 
+func getAssetType(cmp *entity.Company) string {
+	if cmp.BDR {
+		return "BDR"
+	}
+
+	if cmp.ETF {
+		return "ETF"
+	}
+
+	return "SHR"
+}
+
 func (report *ConsoleReport) printInvoiceItems() {
 	invoice := report.invoice
 	fmt.Printf("Invoice.Items .... : %d\n", len(invoice.Items))
 	fmt.Printf(
-		"%3s %8s %6s %10s %6s %7s\n",
+		"%3s %8s %4s %6s %10s %6s %7s\n",
 		"Ord",
 		"Tag",
+		"Type",
 		"Qty",
 		"Price",
 		"Debit",
 		"Id",
 	)
+
 	for _, item := range invoice.Items {
 		fmt.Printf(
-			"%3d %8s %6d %10.2f %6s %7d\n",
+			"%3d %8s %4s %6d %10.2f %6s %7d\n",
 			item.Order,
 			item.Company.Code,
+			getAssetType(item.Company),
 			item.Qty,
 			item.Price,
 			strconv.FormatBool(item.Debit),
@@ -222,7 +237,8 @@ func (report *ConsoleReport) printTradeBatch() {
 
 	fmt.Printf("Item.TradeBatch .. : \n")
 	fmt.Printf(
-		"%8s %10s %10s %10s %8s %8s %8s\n",
+		"%4s %8s %10s %10s %10s %8s %8s %8s\n",
+		"Type",
 		"Start Dt",
 		"AccLoss",
 		"Results",
@@ -238,12 +254,37 @@ func (report *ConsoleReport) printTradeBatch() {
 	)
 
 	fmt.Printf(
-		"%8s %10.2f %10.2f %10.2f %8.2f %8.2f %8d\n",
+		"%4s %8s %10.2f %10.2f %10.2f %8.2f %8.2f %8d\n",
+		"SHR",
 		tradeBatch.StartDate.Format("2006-01"),
-		tradeBatch.AccLoss,
-		tradeBatch.CurrentResults,
-		tradeBatch.TotalTrade,
-		tradeBatch.TotalTax,
+		tradeBatch.Shr.AccLoss,
+		tradeBatch.Shr.Results,
+		tradeBatch.Shr.TotalTrade,
+		tradeBatch.Shr.TotalTax,
+		irfee,
+		tradeBatch.Id,
+	)
+
+	fmt.Printf(
+		"%4s %8s %10.2f %10.2f %10.2f %8.2f %8.2f %8d\n",
+		"BDR",
+		tradeBatch.StartDate.Format("2006-01"),
+		tradeBatch.Bdr.AccLoss,
+		tradeBatch.Bdr.Results,
+		tradeBatch.Bdr.TotalTrade,
+		tradeBatch.Bdr.TotalTax,
+		irfee,
+		tradeBatch.Id,
+	)
+
+	fmt.Printf(
+		"%4s %8s %10.2f %10.2f %10.2f %8.2f %8.2f %8d\n",
+		"ETF",
+		tradeBatch.StartDate.Format("2006-01"),
+		tradeBatch.Etf.AccLoss,
+		tradeBatch.Etf.Results,
+		tradeBatch.Etf.TotalTrade,
+		tradeBatch.Etf.TotalTax,
 		irfee,
 		tradeBatch.Id,
 	)
