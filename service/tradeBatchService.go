@@ -69,52 +69,93 @@ func (tbsvc *TradeBatchService) getTaxGroup(marketDate time.Time) (*entity.TaxGr
 	return taxGroupService.CreateTaxGroup()
 }
 
-func (tbsvc *TradeBatchService) getNewAccLoss(lastTradeBatch *entity.TradeBatch) float64 {
-	if lastTradeBatch == nil {
-		return 0.0
+func (tbsvc *TradeBatchService) getNewTradeData(lastTradeData *entity.TradeBatchData) *entity.TradeBatchData {
+	var tradeData entity.TradeBatchData
+
+	if lastTradeData == nil {
+		return &tradeData
 	}
 
-	lAccLoss := lastTradeBatch.AccLoss
-	lResults := lastTradeBatch.CurrentResults
-	accLoss := lAccLoss + lResults
+	la := lastTradeData.AccLoss
+	lr := lastTradeData.Results
+	lt := lastTradeData.TotalTax
+
+	accLoss := la + lr - lt
 
 	if accLoss > 0 {
-		return 0.0
+		accLoss = 0
 	}
 
-	return accLoss
+	tradeData.AccLoss = accLoss
+	tradeData.Results = 0.0
+	tradeData.TotalTax = 0.0
+	tradeData.TotalTrade = 0.0
+
+	return &tradeData
 }
 
-func (tbsvc *TradeBatchService) adjustTradeBatchTaxes(tradeBatch *entity.TradeBatch) *entity.TradeBatch {
-	var irFee float64
+func (tbsvc *TradeBatchService) adjustTradeBatchTaxes() *entity.TradeBatch {
+	tradeBatch := tbsvc.tradeBatch
+
+	var shrIRFee float64
+	var bdrIRFee float64
+	var etfIRFee float64
+	var irFeeBaseValue float64 = 0.0
+
+	shrTradeData := tradeBatch.Shr
+	bdrTradeData := tradeBatch.Bdr
+	etfTradeData := tradeBatch.Etf
+
+	totalAccLoss := shrTradeData.AccLoss + bdrTradeData.AccLoss + etfTradeData.AccLoss
+	totalResults := shrTradeData.Results + bdrTradeData.Results + etfTradeData.Results
+	totalTaxes := shrTradeData.TotalTax + bdrTradeData.TotalTax + etfTradeData.TotalTax
+	irExemptByLoss := (totalResults - totalTaxes) <= totalAccLoss
+
+	// SHR
+	shrIRExcemptByLimit := (shrTradeData.TotalTrade <= constants.TaxRates.IR_EXPT_LIMIT)
+	shrCurrentResults := shrTradeData.Results - shrTradeData.TotalTax
+	shrIRExcemptByResuls := shrCurrentResults <= 0
+
+	if shrIRExcemptByLimit || shrIRExcemptByResuls || irExemptByLoss {
+		shrIRFee = 0.0
+	} else {
+		shrIRFee = shrCurrentResults * constants.TaxRates.IRFEE
+		irFeeBaseValue = irFeeBaseValue + shrCurrentResults
+	}
+
+	// BDR
+	bdrCurrentResults := bdrTradeData.Results - bdrTradeData.TotalTax
+	bdrIRExcempByResults := bdrCurrentResults <= 0
+	if bdrIRExcempByResults || irExemptByLoss {
+		bdrIRFee = 0.0
+	} else {
+		bdrIRFee = bdrCurrentResults * constants.TaxRates.IRFEE
+		irFeeBaseValue = irFeeBaseValue + bdrCurrentResults
+	}
+
+	// ETF
+	etfCurrentResults := etfTradeData.Results - etfTradeData.TotalTax
+	etfIRExcempByResults := etfCurrentResults <= 0
+	if etfIRExcempByResults || irExemptByLoss {
+		etfIRFee = 0.0
+	} else {
+		etfIRFee = etfCurrentResults * constants.TaxRates.IRFEE
+		irFeeBaseValue = irFeeBaseValue + etfCurrentResults
+	}
 
 	taxGroup := tradeBatch.TaxGroup
-	currentResults := tradeBatch.CurrentResults - tradeBatch.TotalTax
-	irexcemptByLimit := (tradeBatch.TotalTrade <= constants.TaxRates.IR_EXPT_LIMIT)
-	irexcemptByResuls := currentResults <= 0
-	irexcemptByLoss := currentResults <= tradeBatch.AccLoss
-
-	if irexcemptByLimit || irexcemptByResuls || irexcemptByLoss {
-		irFee = 0
-	} else {
-		irFee = currentResults * constants.TaxRates.IRFEE
-	}
 
 	// find IRFEE from tax group - if not exists then create
 	irFeeInstance := taxGroup.GetTaxInstanceByCode(constants.TaxTypes.IRFEE)
 
-	taxBaseValue := currentResults - tradeBatch.AccLoss
-
-	irFeeInstance.TaxValue = irFee
-	irFeeInstance.BaseValue = taxBaseValue
+	irFeeInstance.TaxValue = (shrIRFee + bdrIRFee + etfIRFee)
+	irFeeInstance.BaseValue = irFeeBaseValue
 
 	taxGroup.Taxes[0] = *irFeeInstance // TODO taxGroup.Taxes needs to use ptrs
 
 	log.Printf(
-		"TradeBatchService.adjustTradeBatchTaxes: id = %d, tax = %f, bv = %f",
+		"TradeBatchService.adjustTradeBatchTaxes: id = %d",
 		irFeeInstance.Id,
-		irFeeInstance.TaxValue,
-		irFeeInstance.BaseValue,
 	)
 
 	return tradeBatch
@@ -130,17 +171,27 @@ func (tbsvc *TradeBatchService) createTradeBatch(
 		return nil, err
 	}
 
+	var lastShrData, lastBdrData, lastEftData *entity.TradeBatchData
+
+	if lastTradeBatch != nil {
+		lastShrData = lastTradeBatch.Shr
+		lastBdrData = lastTradeBatch.Bdr
+		lastEftData = lastTradeBatch.Etf
+	}
+
+	newShrData := tbsvc.getNewTradeData(lastShrData)
+	newBdrData := tbsvc.getNewTradeData(lastBdrData)
+	newEtfData := tbsvc.getNewTradeData(lastEftData)
+
 	user := tbsvc.user
-	accLoss := tbsvc.getNewAccLoss(lastTradeBatch)
 
 	tradeBatch := &entity.TradeBatch{
-		User:           user,
-		StartDate:      utils.ToFirstDayOfMonth(marketDate),
-		TaxGroup:       taxGroup,
-		AccLoss:        accLoss,
-		CurrentResults: 0.0,
-		TotalTrade:     0.0,
-		TotalTax:       0.0,
+		User:      user,
+		StartDate: utils.ToFirstDayOfMonth(marketDate),
+		TaxGroup:  taxGroup,
+		Shr:       newShrData,
+		Bdr:       newBdrData,
+		Etf:       newEtfData,
 	}
 
 	tradeBatchDAO := db.GetTradeBatchDAO(
@@ -191,22 +242,30 @@ func (tbsvc *TradeBatchService) FindTradeBatch(marketDate time.Time) (*entity.Tr
 
 func (tbsvc *TradeBatchService) ProcessTrade(trade *entity.Trade) *entity.TradeBatch {
 	tradeBatch := tbsvc.tradeBatch
+	company := trade.Item.Company
 
-	itemTrade := trade.Item.Price * float64(trade.Item.Qty)
+	shrTradeData := tradeBatch.Shr
+	bdrTradeData := tradeBatch.Bdr
 
-	tradeBatch.CurrentResults = tradeBatch.CurrentResults + trade.RawResults
-	tradeBatch.TotalTrade = tradeBatch.TotalTrade + itemTrade
-	tradeBatch.TotalTax = tradeBatch.TotalTax + trade.TotalTax
+	if company.BDR {
+		bdrTradeData.Results = bdrTradeData.Results + trade.RawResults
+		bdrTradeData.TotalTax = bdrTradeData.TotalTax + trade.TotalTax
+	} else if company.ETF {
+		// TODO implement support for ETF
+	} else {
+		itemTrade := trade.Item.Price * float64(trade.Item.Qty)
+
+		shrTradeData.Results = shrTradeData.Results + trade.RawResults
+		shrTradeData.TotalTax = shrTradeData.TotalTax + trade.TotalTax
+		shrTradeData.TotalTrade = shrTradeData.TotalTrade + itemTrade
+	}
 
 	log.Printf(
-		"TradeBatchService.ProcessTrade: id = %d, cr = %f, trd = %f, tax = %f",
+		"TradeBatchService.ProcessTrade: id = %d",
 		tradeBatch.Id,
-		tradeBatch.CurrentResults,
-		tradeBatch.TotalTrade,
-		tradeBatch.TotalTax,
 	)
 
-	return tbsvc.adjustTradeBatchTaxes(tradeBatch)
+	return tbsvc.adjustTradeBatchTaxes()
 }
 
 func (tbsvc *TradeBatchService) SaveTradeBatch() (*entity.TradeBatch, error) {

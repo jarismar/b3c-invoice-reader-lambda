@@ -26,10 +26,16 @@ func (dao *TradeBatchDAO) GetTradeBatch() (*entity.TradeBatch, error) {
 	query := `SELECT
 		trb_id,
 		tgr_id,
-		trb_acc_loss,
-		trb_current_results,
-		trb_total_trade,
-		trb_total_tax
+		trb_shr_loss,
+		trb_shr_results,
+		trb_total_shr_tax,
+		trb_total_shr_trade,
+		trb_bdr_loss,
+		trb_bdr_results,
+		trb_total_bdr_tax,
+		trb_etf_loss,
+		trb_etf_results,
+		trb_total_etf_tax
 	FROM trade_batch
 	WHERE usr_id = ?
 	  AND trb_start_date = ?`
@@ -45,6 +51,9 @@ func (dao *TradeBatchDAO) GetTradeBatch() (*entity.TradeBatch, error) {
 	tradeBatch := dao.tradeBatch
 	var taxGroupId int64
 	var tradeBatchRec entity.TradeBatch
+	var shrData entity.TradeBatchData
+	var bdrData entity.TradeBatchData
+	var etfData entity.TradeBatchData
 
 	err = stmt.QueryRow(
 		tradeBatch.User.Id,
@@ -52,10 +61,16 @@ func (dao *TradeBatchDAO) GetTradeBatch() (*entity.TradeBatch, error) {
 	).Scan(
 		&tradeBatchRec.Id,
 		&taxGroupId,
-		&tradeBatchRec.AccLoss,
-		&tradeBatchRec.CurrentResults,
-		&tradeBatchRec.TotalTrade,
-		&tradeBatchRec.TotalTax,
+		&shrData.AccLoss,
+		&shrData.Results,
+		&shrData.TotalTax,
+		&shrData.TotalTrade,
+		&bdrData.AccLoss,
+		&bdrData.Results,
+		&bdrData.TotalTax,
+		&etfData.AccLoss,
+		&etfData.Results,
+		&etfData.TotalTax,
 	)
 
 	if err == sql.ErrNoRows {
@@ -70,10 +85,9 @@ func (dao *TradeBatchDAO) GetTradeBatch() (*entity.TradeBatch, error) {
 	}
 
 	log.Printf(
-		"TradeBatchDAO.GetTradeBatch: found trade batch [%d, %s, %.4f]",
+		"TradeBatchDAO.GetTradeBatch: found trade batch [%d, %s]",
 		tradeBatchRec.Id,
 		tradeBatch.StartDate.Format("2006-01-01"),
-		tradeBatch.CurrentResults,
 	)
 
 	taxGroup := entity.TaxGroup{
@@ -90,6 +104,9 @@ func (dao *TradeBatchDAO) GetTradeBatch() (*entity.TradeBatch, error) {
 	tradeBatchRec.User = tradeBatch.User
 	tradeBatchRec.TaxGroup = taxGroupRec
 	tradeBatchRec.StartDate = tradeBatch.StartDate
+	tradeBatchRec.Shr = &shrData
+	tradeBatchRec.Bdr = &bdrData
+	tradeBatchRec.Etf = &etfData
 
 	return &tradeBatchRec, nil
 }
@@ -99,10 +116,16 @@ func (dao *TradeBatchDAO) GetLastTradeBatch() (*entity.TradeBatch, error) {
 		trb_id,
 		tgr_id,
 		trb_start_date,
-		trb_acc_loss,
-		trb_current_results,
-		trb_total_trade,
-		trb_total_tax
+		trb_shr_loss,
+		trb_shr_results,
+		trb_total_shr_tax,
+		trb_total_shr_trade,
+		trb_bdr_loss,
+		trb_bdr_results,
+		trb_total_bdr_tax,
+		trb_etf_loss,
+		trb_etf_results,
+		trb_total_etf_tax
 	FROM trade_batch
 	WHERE usr_id = ?
 	ORDER BY trb_start_date DESC
@@ -119,6 +142,9 @@ func (dao *TradeBatchDAO) GetLastTradeBatch() (*entity.TradeBatch, error) {
 	tradeBatch := dao.tradeBatch
 	var taxGroupId int64
 	var tradeBatchRec entity.TradeBatch
+	var shrData entity.TradeBatchData
+	var bdrData entity.TradeBatchData
+	var etfData entity.TradeBatchData
 
 	err = stmt.QueryRow(
 		tradeBatch.User.Id,
@@ -126,10 +152,16 @@ func (dao *TradeBatchDAO) GetLastTradeBatch() (*entity.TradeBatch, error) {
 		&tradeBatchRec.Id,
 		&taxGroupId,
 		&tradeBatchRec.StartDate,
-		&tradeBatchRec.AccLoss,
-		&tradeBatchRec.CurrentResults,
-		&tradeBatchRec.TotalTrade,
-		&tradeBatchRec.TotalTax,
+		&shrData.AccLoss,
+		&shrData.Results,
+		&shrData.TotalTax,
+		&shrData.TotalTrade,
+		&bdrData.AccLoss,
+		&bdrData.Results,
+		&bdrData.TotalTax,
+		&etfData.AccLoss,
+		&etfData.Results,
+		&etfData.TotalTax,
 	)
 
 	if err == sql.ErrNoRows {
@@ -139,10 +171,9 @@ func (dao *TradeBatchDAO) GetLastTradeBatch() (*entity.TradeBatch, error) {
 	}
 
 	log.Printf(
-		"TradeBatchDAO.GetLastTradeBatch: found trade batch [%d, %s, %.4f]",
+		"TradeBatchDAO.GetLastTradeBatch: found last trade batch [%d, %s]",
 		tradeBatchRec.Id,
 		tradeBatch.StartDate.Format(time.RFC3339),
-		tradeBatch.CurrentResults,
 	)
 
 	taxGroup := entity.TaxGroup{
@@ -159,6 +190,9 @@ func (dao *TradeBatchDAO) GetLastTradeBatch() (*entity.TradeBatch, error) {
 	tradeBatchRec.User = tradeBatch.User
 	tradeBatchRec.TaxGroup = taxGroupRec
 	tradeBatchRec.StartDate = tradeBatch.StartDate
+	tradeBatchRec.Shr = &shrData
+	tradeBatchRec.Bdr = &bdrData
+	tradeBatchRec.Etf = &etfData
 
 	return &tradeBatchRec, nil
 }
@@ -168,11 +202,17 @@ func (dao *TradeBatchDAO) CreateTradeBatch() (*entity.TradeBatch, error) {
 		tgr_id,
 		usr_id,
 		trb_start_date,
-		trb_acc_loss,
-		trb_current_results,
-		trb_total_trade,
-		trb_total_tax
-	) VALUES (?,?,?,?,?,?,?)`
+		trb_shr_loss,
+		trb_shr_results,
+		trb_total_shr_tax,
+		trb_total_shr_trade,
+		trb_bdr_loss,
+		trb_bdr_results,
+		trb_total_bdr_tax,
+		trb_etf_loss,
+		trb_etf_results,
+		trb_total_etf_tax
+	) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`
 
 	stmt, err := dao.tx.Prepare(insertStmt)
 
@@ -188,10 +228,16 @@ func (dao *TradeBatchDAO) CreateTradeBatch() (*entity.TradeBatch, error) {
 		tradeBatch.TaxGroup.Id,
 		tradeBatch.User.Id,
 		tradeBatch.StartDate,
-		tradeBatch.AccLoss,
-		tradeBatch.CurrentResults,
-		tradeBatch.TotalTrade,
-		tradeBatch.TotalTax,
+		tradeBatch.Shr.AccLoss,
+		tradeBatch.Shr.Results,
+		tradeBatch.Shr.TotalTax,
+		tradeBatch.Shr.TotalTrade,
+		tradeBatch.Bdr.AccLoss,
+		tradeBatch.Bdr.Results,
+		tradeBatch.Bdr.TotalTax,
+		tradeBatch.Etf.AccLoss,
+		tradeBatch.Etf.Results,
+		tradeBatch.Etf.TotalTax,
 	)
 
 	if err != nil {
@@ -205,14 +251,13 @@ func (dao *TradeBatchDAO) CreateTradeBatch() (*entity.TradeBatch, error) {
 	}
 
 	tradeBatchRec := &entity.TradeBatch{
-		Id:             lastId,
-		User:           tradeBatch.User,
-		TaxGroup:       tradeBatch.TaxGroup,
-		StartDate:      tradeBatch.StartDate,
-		AccLoss:        tradeBatch.AccLoss,
-		CurrentResults: tradeBatch.CurrentResults,
-		TotalTrade:     tradeBatch.TotalTrade,
-		TotalTax:       tradeBatch.TotalTax,
+		Id:        lastId,
+		User:      tradeBatch.User,
+		TaxGroup:  tradeBatch.TaxGroup,
+		StartDate: tradeBatch.StartDate,
+		Shr:       tradeBatch.Shr,
+		Bdr:       tradeBatch.Bdr,
+		Etf:       tradeBatch.Etf,
 	}
 
 	log.Printf(
@@ -226,10 +271,16 @@ func (dao *TradeBatchDAO) CreateTradeBatch() (*entity.TradeBatch, error) {
 
 func (dao *TradeBatchDAO) UpdateTradeBatch() error {
 	updateStmt := `UPDATE trade_batch SET
-		trb_acc_loss = ?,
-		trb_current_results = ?,
-		trb_total_trade = ?,
-		trb_total_tax = ?
+		trb_shr_loss = ?,
+		trb_shr_results = ?,
+		trb_total_shr_tax = ?,
+		trb_total_shr_trade = ?,
+		trb_bdr_loss = ?,
+		trb_bdr_results = ?,
+		trb_total_bdr_tax = ?,
+		trb_etf_loss = ?,
+		trb_etf_results = ?,
+		trb_total_etf_tax = ?
 	WHERE trb_id = ?`
 
 	stmt, err := dao.tx.Prepare(updateStmt)
@@ -243,10 +294,16 @@ func (dao *TradeBatchDAO) UpdateTradeBatch() error {
 	tradeBatch := dao.tradeBatch
 
 	res, err := stmt.Exec(
-		tradeBatch.AccLoss,
-		tradeBatch.CurrentResults,
-		tradeBatch.TotalTrade,
-		tradeBatch.TotalTax,
+		tradeBatch.Shr.AccLoss,
+		tradeBatch.Shr.Results,
+		tradeBatch.Shr.TotalTax,
+		tradeBatch.Shr.TotalTrade,
+		tradeBatch.Bdr.AccLoss,
+		tradeBatch.Bdr.Results,
+		tradeBatch.Bdr.TotalTax,
+		tradeBatch.Etf.AccLoss,
+		tradeBatch.Etf.Results,
+		tradeBatch.Etf.TotalTax,
 		tradeBatch.Id,
 	)
 
@@ -265,11 +322,8 @@ func (dao *TradeBatchDAO) UpdateTradeBatch() error {
 	}
 
 	log.Printf(
-		"TradeBatchDAO.UpdateTradeBatch: record updated [%d, loss = %f, cr = %f, tt = %f]",
+		"TradeBatchDAO.UpdateTradeBatch: record updated [%d]",
 		tradeBatch.Id,
-		tradeBatch.AccLoss,
-		tradeBatch.CurrentResults,
-		tradeBatch.TotalTrade,
 	)
 
 	return nil

@@ -198,6 +198,9 @@ func (isvc *InvoiceService) getInvoiceItem(invoice *entity.Invoice, itemInput *i
 		Name: itemInput.Company.Name,
 	}
 
+	company.BDR = utils.IsBDR(company)
+	company.ETF = false // TODO implement support for ETFs
+
 	companyService := GetCompanyService(
 		isvc.tx,
 		company,
